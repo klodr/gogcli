@@ -203,6 +203,7 @@ We store a single refresh token per Google account email.
 - Drive: `https://www.googleapis.com/auth/drive`
 - Contacts/Directory:
   - `https://www.googleapis.com/auth/contacts`
+  - `https://www.googleapis.com/auth/contacts.other.readonly`
   - `https://www.googleapis.com/auth/directory.readonly`
 
 ## Output formats (planned)

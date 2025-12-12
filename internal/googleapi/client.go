@@ -24,6 +24,10 @@ func tokenSourceForAccount(ctx context.Context, service googleauth.Service, emai
 		return nil, err
 	}
 
+	return tokenSourceForAccountScopes(ctx, string(service), email, creds.ClientID, creds.ClientSecret, requiredScopes)
+}
+
+func tokenSourceForAccountScopes(ctx context.Context, serviceLabel string, email string, clientID string, clientSecret string, requiredScopes []string) (oauth2.TokenSource, error) {
 	store, err := secrets.OpenDefault()
 	if err != nil {
 		return nil, err
@@ -31,7 +35,7 @@ func tokenSourceForAccount(ctx context.Context, service googleauth.Service, emai
 	tok, err := store.GetToken(email)
 	if err != nil {
 		if err == keyring.ErrKeyNotFound {
-			return nil, &AuthRequiredError{Service: string(service), Email: email, Cause: err}
+			return nil, &AuthRequiredError{Service: serviceLabel, Email: email, Cause: err}
 		}
 		return nil, err
 	}
@@ -48,13 +52,13 @@ func tokenSourceForAccount(ctx context.Context, service googleauth.Service, emai
 			}
 		}
 		if len(missing) > 0 {
-			return nil, &MissingScopesError{Service: string(service), Email: email, Missing: missing}
+			return nil, &MissingScopesError{Service: serviceLabel, Email: email, Missing: missing}
 		}
 	}
 
 	cfg := oauth2.Config{
-		ClientID:     creds.ClientID,
-		ClientSecret: creds.ClientSecret,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
 		Endpoint:     google.Endpoint,
 		Scopes:       requiredScopes,
 	}
@@ -64,6 +68,18 @@ func tokenSourceForAccount(ctx context.Context, service googleauth.Service, emai
 
 func optionsForAccount(ctx context.Context, service googleauth.Service, email string) ([]option.ClientOption, error) {
 	ts, err := tokenSourceForAccount(ctx, service, email)
+	if err != nil {
+		return nil, err
+	}
+	return []option.ClientOption{option.WithTokenSource(ts)}, nil
+}
+
+func optionsForAccountScopes(ctx context.Context, serviceLabel string, email string, scopes []string) ([]option.ClientOption, error) {
+	creds, err := config.ReadClientCredentials()
+	if err != nil {
+		return nil, err
+	}
+	ts, err := tokenSourceForAccountScopes(ctx, serviceLabel, email, creds.ClientID, creds.ClientSecret, scopes)
 	if err != nil {
 		return nil, err
 	}

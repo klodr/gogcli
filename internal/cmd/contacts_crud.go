@@ -31,7 +31,7 @@ func newContactsListCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			svc, err := googleapi.NewPeople(cmd.Context(), account)
+			svc, err := googleapi.NewPeopleContacts(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -116,7 +116,7 @@ func newContactsGetCmd(flags *rootFlags) *cobra.Command {
 				return errors.New("empty identifier")
 			}
 
-			svc, err := googleapi.NewPeople(cmd.Context(), account)
+			svc, err := googleapi.NewPeopleContacts(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -195,7 +195,7 @@ func newContactsCreateCmd(flags *rootFlags) *cobra.Command {
 				return errors.New("required: --given")
 			}
 
-			svc, err := googleapi.NewPeople(cmd.Context(), account)
+			svc, err := googleapi.NewPeopleContacts(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -253,7 +253,7 @@ func newContactsUpdateCmd(flags *rootFlags) *cobra.Command {
 				return errors.New("resourceName must start with people/")
 			}
 
-			svc, err := googleapi.NewPeople(cmd.Context(), account)
+			svc, err := googleapi.NewPeopleContacts(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -340,7 +340,7 @@ func newContactsDeleteCmd(flags *rootFlags) *cobra.Command {
 				return errors.New("resourceName must start with people/")
 			}
 
-			svc, err := googleapi.NewPeople(cmd.Context(), account)
+			svc, err := googleapi.NewPeopleContacts(cmd.Context(), account)
 			if err != nil {
 				return err
 			}

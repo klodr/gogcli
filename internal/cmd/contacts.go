@@ -44,7 +44,7 @@ func newContactsSearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			query := strings.Join(args, " ")
 
-			svc, err := googleapi.NewPeople(cmd.Context(), account)
+			svc, err := googleapi.NewPeopleContacts(cmd.Context(), account)
 			if err != nil {
 				return err
 			}

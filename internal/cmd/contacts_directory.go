@@ -39,7 +39,7 @@ func newContactsDirectoryListCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			svc, err := googleapi.NewPeople(cmd.Context(), account)
+			svc, err := googleapi.NewPeopleDirectory(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -122,7 +122,7 @@ func newContactsDirectorySearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			query := strings.Join(args, " ")
 
-			svc, err := googleapi.NewPeople(cmd.Context(), account)
+			svc, err := googleapi.NewPeopleDirectory(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -215,7 +215,7 @@ func newContactsOtherListCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			svc, err := googleapi.NewPeople(cmd.Context(), account)
+			svc, err := googleapi.NewPeopleOtherContacts(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -300,7 +300,7 @@ func newContactsOtherSearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			query := strings.Join(args, " ")
 
-			svc, err := googleapi.NewPeople(cmd.Context(), account)
+			svc, err := googleapi.NewPeopleOtherContacts(cmd.Context(), account)
 			if err != nil {
 				return err
 			}

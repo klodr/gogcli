@@ -40,6 +40,7 @@ func Scopes(service Service) ([]string, error) {
 	case ServiceContacts:
 		return []string{
 			"https://www.googleapis.com/auth/contacts",
+			"https://www.googleapis.com/auth/contacts.other.readonly",
 			"https://www.googleapis.com/auth/directory.readonly",
 		}, nil
 	default:

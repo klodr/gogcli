@@ -83,7 +83,7 @@ func TestContactsSmoke(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	svc, err := googleapi.NewPeople(ctx, account)
+	svc, err := googleapi.NewPeopleContacts(ctx, account)
 	if err != nil {
 		t.Fatalf("NewPeople: %v", err)
 	}
