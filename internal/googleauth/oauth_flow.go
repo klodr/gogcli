@@ -28,6 +28,13 @@ type AuthorizeOptions struct {
 	Timeout      time.Duration
 }
 
+var (
+	readClientCredentials = config.ReadClientCredentials
+	openBrowserFn         = openBrowser
+	oauthEndpoint         = google.Endpoint
+	randomStateFn         = randomState
+)
+
 func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 	if opts.Timeout <= 0 {
 		opts.Timeout = 2 * time.Minute
@@ -35,12 +42,12 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 	if len(opts.Scopes) == 0 {
 		return "", errors.New("missing scopes")
 	}
-	creds, err := config.ReadClientCredentials()
+	creds, err := readClientCredentials()
 	if err != nil {
 		return "", err
 	}
 
-	state, err := randomState()
+	state, err := randomStateFn()
 	if err != nil {
 		return "", err
 	}
@@ -53,7 +60,7 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 		cfg := oauth2.Config{
 			ClientID:     creds.ClientID,
 			ClientSecret: creds.ClientSecret,
-			Endpoint:     google.Endpoint,
+			Endpoint:     oauthEndpoint,
 			RedirectURL:  redirectURI,
 			Scopes:       opts.Scopes,
 		}
@@ -100,7 +107,7 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 	cfg := oauth2.Config{
 		ClientID:     creds.ClientID,
 		ClientSecret: creds.ClientSecret,
-		Endpoint:     google.Endpoint,
+		Endpoint:     oauthEndpoint,
 		RedirectURL:  redirectURI,
 		Scopes:       opts.Scopes,
 	}
@@ -170,7 +177,7 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 	fmt.Fprintln(os.Stderr, "Opening browser for authorization…")
 	fmt.Fprintln(os.Stderr, "If the browser doesn't open, visit this URL:")
 	fmt.Fprintln(os.Stderr, authURL)
-	_ = openBrowser(authURL)
+	_ = openBrowserFn(authURL)
 
 	select {
 	case code := <-codeCh:

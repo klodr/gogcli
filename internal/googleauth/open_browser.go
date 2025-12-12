@@ -5,15 +5,22 @@ import (
 	"runtime"
 )
 
+var startCommand = func(name string, args ...string) error {
+	return exec.Command(name, args...).Start()
+}
+
 func openBrowser(u string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
+	name, args := openBrowserCommand(u, runtime.GOOS)
+	return startCommand(name, args...)
+}
+
+func openBrowserCommand(u string, goos string) (name string, args []string) {
+	switch goos {
 	case "darwin":
-		cmd = exec.Command("open", u)
+		return "open", []string{u}
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", u)
+		return "rundll32", []string{"url.dll,FileProtocolHandler", u}
 	default:
-		cmd = exec.Command("xdg-open", u)
+		return "xdg-open", []string{u}
 	}
-	return cmd.Start()
 }
