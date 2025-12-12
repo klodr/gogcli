@@ -36,3 +36,9 @@ Run smoke tests against real APIs (not in CI):
 - Format: `make fmt`
 - Lint: `make lint`
 - Test: `make test`
+
+### `pnpm` shortcut
+
+If you use `pnpm`, you can build+run in one step:
+
+- `pnpm gog auth add you@gmail.com`
