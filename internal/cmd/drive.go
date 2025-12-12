@@ -20,6 +20,8 @@ import (
 	gapi "google.golang.org/api/googleapi"
 )
 
+var newDriveService = googleapi.NewDrive
+
 func newDriveCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "drive",
@@ -64,7 +66,7 @@ func newDriveLsCmd(flags *rootFlags) *cobra.Command {
 				folderID = args[0]
 			}
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -140,7 +142,7 @@ func newDriveSearchCmd(flags *rootFlags) *cobra.Command {
 			}
 			text := strings.Join(args, " ")
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -210,7 +212,7 @@ func newDriveGetCmd(flags *rootFlags) *cobra.Command {
 			}
 			fileID := args[0]
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -263,7 +265,7 @@ func newDriveDownloadCmd(flags *rootFlags) *cobra.Command {
 				destPath = args[1]
 			}
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -333,7 +335,7 @@ func newDriveUploadCmd(flags *rootFlags) *cobra.Command {
 				fileName = filepath.Base(localPath)
 			}
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -387,7 +389,7 @@ func newDriveMkdirCmd(flags *rootFlags) *cobra.Command {
 
 			name := args[0]
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -438,7 +440,7 @@ func newDriveDeleteCmd(flags *rootFlags) *cobra.Command {
 			}
 			fileID := args[0]
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -473,7 +475,7 @@ func newDriveMoveCmd(flags *rootFlags) *cobra.Command {
 			fileID := args[0]
 			newParentID := args[1]
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -524,7 +526,7 @@ func newDriveRenameCmd(flags *rootFlags) *cobra.Command {
 			fileID := args[0]
 			newName := args[1]
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -576,7 +578,7 @@ func newDriveShareCmd(flags *rootFlags) *cobra.Command {
 				return errors.New("invalid --role (expected reader|writer)")
 			}
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -639,7 +641,7 @@ func newDriveUnshareCmd(flags *rootFlags) *cobra.Command {
 			fileID := args[0]
 			permissionID := args[1]
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -677,7 +679,7 @@ func newDrivePermissionsCmd(flags *rootFlags) *cobra.Command {
 			}
 			fileID := args[0]
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}
@@ -724,7 +726,7 @@ func newDriveURLCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			svc, err := googleapi.NewDrive(cmd.Context(), account)
+			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
 			}

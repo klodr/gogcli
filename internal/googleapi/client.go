@@ -17,8 +17,13 @@ import (
 
 const defaultHTTPTimeout = 30 * time.Second
 
+var (
+	readClientCredentials = config.ReadClientCredentials
+	openSecretsStore      = secrets.OpenDefault
+)
+
 func tokenSourceForAccount(ctx context.Context, service googleauth.Service, email string) (oauth2.TokenSource, error) {
-	creds, err := config.ReadClientCredentials()
+	creds, err := readClientCredentials()
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +37,7 @@ func tokenSourceForAccount(ctx context.Context, service googleauth.Service, emai
 }
 
 func tokenSourceForAccountScopes(ctx context.Context, serviceLabel string, email string, clientID string, clientSecret string, requiredScopes []string) (oauth2.TokenSource, error) {
-	store, err := secrets.OpenDefault()
+	store, err := openSecretsStore()
 	if err != nil {
 		return nil, err
 	}
