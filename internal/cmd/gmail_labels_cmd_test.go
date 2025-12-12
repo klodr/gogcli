@@ -293,3 +293,45 @@ func TestGmailLabelsModifyCmd_JSON(t *testing.T) {
 		t.Fatalf("unexpected result 1: %#v", parsed.Results[1])
 	}
 }
+
+func TestFetchLabelIDToName(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !(strings.HasSuffix(r.URL.Path, "/users/me/labels") || strings.HasSuffix(r.URL.Path, "/gmail/v1/users/me/labels")) {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"labels": []map[string]any{
+				{"id": "INBOX", "name": "INBOX", "type": "system"},
+				{"id": "Label_1", "name": "Custom", "type": "user"},
+				{"id": "Label_2", "type": "user"},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	svc, err := gmail.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	m, err := fetchLabelIDToName(svc)
+	if err != nil {
+		t.Fatalf("fetchLabelIDToName: %v", err)
+	}
+	if m["INBOX"] != "INBOX" {
+		t.Fatalf("unexpected inbox: %q", m["INBOX"])
+	}
+	if m["Label_1"] != "Custom" {
+		t.Fatalf("unexpected label1: %q", m["Label_1"])
+	}
+	// If name is missing, fall back to ID.
+	if m["Label_2"] != "Label_2" {
+		t.Fatalf("unexpected label2: %q", m["Label_2"])
+	}
+}

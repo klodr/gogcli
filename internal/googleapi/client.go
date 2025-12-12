@@ -73,7 +73,7 @@ func optionsForAccount(ctx context.Context, service googleauth.Service, email st
 }
 
 func optionsForAccountScopes(ctx context.Context, serviceLabel string, email string, scopes []string) ([]option.ClientOption, error) {
-	creds, err := config.ReadClientCredentials()
+	creds, err := readClientCredentials()
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,8 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
+var openSecretsStore = secrets.OpenDefault
+
 func newAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
@@ -78,7 +80,7 @@ func newAuthTokensCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			u := ui.FromContext(cmd.Context())
-			store, err := secrets.OpenDefault()
+			store, err := openSecretsStore()
 			if err != nil {
 				return err
 			}
@@ -112,7 +114,7 @@ func newAuthTokensCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := ui.FromContext(cmd.Context())
-			store, err := secrets.OpenDefault()
+			store, err := openSecretsStore()
 			if err != nil {
 				return err
 			}
@@ -153,7 +155,7 @@ func newAuthTokensExportCmd() *cobra.Command {
 				return errors.New("empty outPath")
 			}
 
-			store, err := secrets.OpenDefault()
+			store, err := openSecretsStore()
 			if err != nil {
 				return err
 			}
@@ -260,7 +262,7 @@ func newAuthTokensImportCmd() *cobra.Command {
 				createdAt = parsed
 			}
 
-			store, err := secrets.OpenDefault()
+			store, err := openSecretsStore()
 			if err != nil {
 				return err
 			}
@@ -340,7 +342,7 @@ func newAuthAddCmd() *cobra.Command {
 				return err
 			}
 
-			store, err := secrets.OpenDefault()
+			store, err := openSecretsStore()
 			if err != nil {
 				return err
 			}
@@ -384,7 +386,7 @@ func newAuthListCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			u := ui.FromContext(cmd.Context())
-			store, err := secrets.OpenDefault()
+			store, err := openSecretsStore()
 			if err != nil {
 				return err
 			}
@@ -439,7 +441,7 @@ func newAuthRemoveCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := ui.FromContext(cmd.Context())
 			email := args[0]
-			store, err := secrets.OpenDefault()
+			store, err := openSecretsStore()
 			if err != nil {
 				return err
 			}

@@ -1,0 +1,257 @@
+package cmd
+
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/99designs/keyring"
+	"github.com/steipete/gogcli/internal/secrets"
+)
+
+type memSecretsStore struct {
+	tokens map[string]secrets.Token
+}
+
+func newMemSecretsStore() *memSecretsStore {
+	return &memSecretsStore{tokens: make(map[string]secrets.Token)}
+}
+
+func normalizeEmail(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
+func (s *memSecretsStore) Keys() ([]string, error) {
+	keys := make([]string, 0, len(s.tokens))
+	for email := range s.tokens {
+		keys = append(keys, "token:"+email)
+	}
+	sort.Strings(keys)
+	return keys, nil
+}
+
+func (s *memSecretsStore) SetToken(email string, tok secrets.Token) error {
+	email = normalizeEmail(email)
+	if email == "" {
+		return errors.New("missing email")
+	}
+	if strings.TrimSpace(tok.RefreshToken) == "" {
+		return errors.New("missing refresh token")
+	}
+	tok.Email = email
+	s.tokens[email] = tok
+	return nil
+}
+
+func (s *memSecretsStore) GetToken(email string) (secrets.Token, error) {
+	email = normalizeEmail(email)
+	if email == "" {
+		return secrets.Token{}, errors.New("missing email")
+	}
+	if tok, ok := s.tokens[email]; ok {
+		return tok, nil
+	}
+	return secrets.Token{}, keyring.ErrKeyNotFound
+}
+
+func (s *memSecretsStore) DeleteToken(email string) error {
+	email = normalizeEmail(email)
+	if email == "" {
+		return errors.New("missing email")
+	}
+	if _, ok := s.tokens[email]; !ok {
+		return keyring.ErrKeyNotFound
+	}
+	delete(s.tokens, email)
+	return nil
+}
+
+func (s *memSecretsStore) ListTokens() ([]secrets.Token, error) {
+	out := make([]secrets.Token, 0, len(s.tokens))
+	for _, t := range s.tokens {
+		out = append(out, t)
+	}
+	return out, nil
+}
+
+func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
+	origOpen := openSecretsStore
+	t.Cleanup(func() { openSecretsStore = origOpen })
+
+	store := newMemSecretsStore()
+	createdAt := time.Date(2025, 12, 12, 0, 0, 0, 0, time.UTC)
+	if err := store.SetToken("A@B.COM", secrets.Token{
+		Services:     []string{"gmail"},
+		Scopes:       []string{"s1"},
+		CreatedAt:    createdAt,
+		RefreshToken: "rt",
+	}); err != nil {
+		t.Fatalf("SetToken: %v", err)
+	}
+
+	openSecretsStore = func() (secrets.Store, error) { return store, nil }
+
+	outPath := filepath.Join(t.TempDir(), "token.json")
+
+	stdout := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--output", "json", "auth", "tokens", "export", "a@b.com", outPath}); err != nil {
+				t.Fatalf("Execute export: %v", err)
+			}
+		})
+	})
+
+	var exportResp struct {
+		Exported bool   `json:"exported"`
+		Email    string `json:"email"`
+		Path     string `json:"path"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &exportResp); err != nil {
+		t.Fatalf("export json: %v\nout=%q", err, stdout)
+	}
+	if !exportResp.Exported || exportResp.Email != "a@b.com" || exportResp.Path != outPath {
+		t.Fatalf("unexpected export resp: %#v", exportResp)
+	}
+	b, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("read outPath: %v", err)
+	}
+	if !strings.Contains(string(b), "\"refresh_token\"") {
+		t.Fatalf("expected refresh_token in file: %q", string(b))
+	}
+
+	// Clear token, then import it back.
+	if err := store.DeleteToken("a@b.com"); err != nil {
+		t.Fatalf("DeleteToken: %v", err)
+	}
+
+	importOut := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--output", "json", "auth", "tokens", "import", outPath}); err != nil {
+				t.Fatalf("Execute import: %v", err)
+			}
+		})
+	})
+	var importResp struct {
+		Imported bool   `json:"imported"`
+		Email    string `json:"email"`
+	}
+	if err := json.Unmarshal([]byte(importOut), &importResp); err != nil {
+		t.Fatalf("import json: %v\nout=%q", err, importOut)
+	}
+	if !importResp.Imported || importResp.Email != "a@b.com" {
+		t.Fatalf("unexpected import resp: %#v", importResp)
+	}
+	if tok, err := store.GetToken("a@b.com"); err != nil || tok.RefreshToken != "rt" {
+		t.Fatalf("expected token restored, got tok=%#v err=%v", tok, err)
+	}
+}
+
+func TestAuthListRemoveTokensListDelete_JSON(t *testing.T) {
+	origOpen := openSecretsStore
+	t.Cleanup(func() { openSecretsStore = origOpen })
+
+	store := newMemSecretsStore()
+	openSecretsStore = func() (secrets.Store, error) { return store, nil }
+
+	_ = store.SetToken("b@b.com", secrets.Token{RefreshToken: "rt2"})
+	_ = store.SetToken("a@b.com", secrets.Token{RefreshToken: "rt1"})
+
+	listOut := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--output", "json", "auth", "list"}); err != nil {
+				t.Fatalf("Execute list: %v", err)
+			}
+		})
+	})
+	var listResp struct {
+		Accounts []struct {
+			Email string `json:"email"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal([]byte(listOut), &listResp); err != nil {
+		t.Fatalf("list json: %v\nout=%q", err, listOut)
+	}
+	if len(listResp.Accounts) != 2 || listResp.Accounts[0].Email != "a@b.com" || listResp.Accounts[1].Email != "b@b.com" {
+		t.Fatalf("unexpected accounts: %#v", listResp.Accounts)
+	}
+
+	// Tokens list (keys).
+	keysOut := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--output", "json", "auth", "tokens", "list"}); err != nil {
+				t.Fatalf("Execute tokens list: %v", err)
+			}
+		})
+	})
+	var keysResp struct {
+		Keys []string `json:"keys"`
+	}
+	if err := json.Unmarshal([]byte(keysOut), &keysResp); err != nil {
+		t.Fatalf("keys json: %v\nout=%q", err, keysOut)
+	}
+	if len(keysResp.Keys) != 2 {
+		t.Fatalf("unexpected keys: %#v", keysResp.Keys)
+	}
+
+	// Remove (auth remove)
+	rmOut := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--output", "json", "auth", "remove", "b@b.com"}); err != nil {
+				t.Fatalf("Execute remove: %v", err)
+			}
+		})
+	})
+	var rmResp struct {
+		Deleted bool   `json:"deleted"`
+		Email   string `json:"email"`
+	}
+	if err := json.Unmarshal([]byte(rmOut), &rmResp); err != nil {
+		t.Fatalf("remove json: %v\nout=%q", err, rmOut)
+	}
+	if !rmResp.Deleted || rmResp.Email != "b@b.com" {
+		t.Fatalf("unexpected remove resp: %#v", rmResp)
+	}
+
+	// Tokens delete (auth tokens delete)
+	delOut := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--output", "json", "auth", "tokens", "delete", "a@b.com"}); err != nil {
+				t.Fatalf("Execute tokens delete: %v", err)
+			}
+		})
+	})
+	var delResp struct {
+		Deleted bool   `json:"deleted"`
+		Email   string `json:"email"`
+	}
+	if err := json.Unmarshal([]byte(delOut), &delResp); err != nil {
+		t.Fatalf("delete json: %v\nout=%q", err, delOut)
+	}
+	if !delResp.Deleted || delResp.Email != "a@b.com" {
+		t.Fatalf("unexpected delete resp: %#v", delResp)
+	}
+
+	// Now empty.
+	emptyKeysOut := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--output", "json", "auth", "tokens", "list"}); err != nil {
+				t.Fatalf("Execute tokens list: %v", err)
+			}
+		})
+	})
+	var emptyKeysResp struct {
+		Keys []string `json:"keys"`
+	}
+	if err := json.Unmarshal([]byte(emptyKeysOut), &emptyKeysResp); err != nil {
+		t.Fatalf("empty keys json: %v\nout=%q", err, emptyKeysOut)
+	}
+	if len(emptyKeysResp.Keys) != 0 {
+		t.Fatalf("expected empty keys, got: %#v", emptyKeysResp.Keys)
+	}
+}
