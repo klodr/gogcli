@@ -81,7 +81,7 @@ func Execute(args []string) error {
 
 	root.SetArgs(args)
 	root.PersistentFlags().StringVar(&flags.Color, "color", flags.Color, "Color output: auto|always|never")
-	root.PersistentFlags().StringVar(&flags.Account, "account", "", "Account email for API commands")
+	root.PersistentFlags().StringVar(&flags.Account, "account", "", "Account email for API commands (gmail/calendar/drive/contacts)")
 	root.PersistentFlags().StringVar(&flags.Output, "output", flags.Output, "Output format: text|json")
 
 	root.AddCommand(newAuthCmd())
