@@ -24,3 +24,22 @@ func captureStdout(t *testing.T, fn func()) string {
 	_ = r.Close()
 	return string(b)
 }
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+
+	orig := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stderr = w
+
+	fn()
+
+	_ = w.Close()
+	os.Stderr = orig
+	b, _ := io.ReadAll(r)
+	_ = r.Close()
+	return string(b)
+}

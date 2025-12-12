@@ -1,0 +1,128 @@
+package cmd
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/ui"
+	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/option"
+)
+
+func TestDriveLsCmd_TextAndJSON(t *testing.T) {
+	origNew := newDriveService
+	t.Cleanup(func() { newDriveService = origNew })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && (r.URL.Path == "/drive/v3/files" || r.URL.Path == "/files"):
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"files": []map[string]any{
+					{
+						"id":           "f1",
+						"name":         "Doc",
+						"mimeType":     "application/pdf",
+						"size":         "1024",
+						"modifiedTime": "2025-12-12T14:37:47Z",
+					},
+					{
+						"id":           "d1",
+						"name":         "Folder",
+						"mimeType":     "application/vnd.google-apps.folder",
+						"size":         "0",
+						"modifiedTime": "2025-12-11T00:00:00Z",
+					},
+				},
+				"nextPageToken": "npt",
+			})
+			return
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	}))
+	defer srv.Close()
+
+	svc, err := drive.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
+
+	flags := &rootFlags{Account: "a@b.com"}
+
+	// Text mode: table to stdout + next page hint to stderr.
+	var errBuf bytes.Buffer
+	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui.New: %v", err)
+	}
+	ctx := ui.WithUI(context.Background(), u)
+	ctx = outfmt.WithMode(ctx, outfmt.ModeText)
+
+	textOut := captureStdout(t, func() {
+		cmd := newDriveLsCmd(flags)
+		cmd.SetContext(ctx)
+		cmd.SetArgs([]string{})
+		if execErr := cmd.Execute(); execErr != nil {
+			t.Fatalf("execute: %v", execErr)
+		}
+	})
+
+	if !strings.Contains(textOut, "ID") || !strings.Contains(textOut, "NAME") {
+		t.Fatalf("unexpected table header: %q", textOut)
+	}
+	if !strings.Contains(textOut, "f1") || !strings.Contains(textOut, "Doc") || !strings.Contains(textOut, "1.0 KB") {
+		t.Fatalf("missing file row: %q", textOut)
+	}
+	if !strings.Contains(textOut, "d1") || !strings.Contains(textOut, "Folder") || !strings.Contains(textOut, "folder") {
+		t.Fatalf("missing folder row: %q", textOut)
+	}
+	if !strings.Contains(errBuf.String(), "--page npt") {
+		t.Fatalf("missing next page hint: %q", errBuf.String())
+	}
+
+	// JSON mode: JSON to stdout and no next-page hint to stderr.
+	var errBuf2 bytes.Buffer
+	u2, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: &errBuf2, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui.New: %v", err)
+	}
+	ctx2 := ui.WithUI(context.Background(), u2)
+	ctx2 = outfmt.WithMode(ctx2, outfmt.ModeJSON)
+
+	jsonOut := captureStdout(t, func() {
+		cmd := newDriveLsCmd(flags)
+		cmd.SetContext(ctx2)
+		cmd.SetArgs([]string{})
+		if execErr := cmd.Execute(); execErr != nil {
+			t.Fatalf("execute: %v", execErr)
+		}
+	})
+	if errBuf2.String() != "" {
+		t.Fatalf("expected no stderr in json mode, got: %q", errBuf2.String())
+	}
+
+	var parsed struct {
+		Files         []*drive.File `json:"files"`
+		NextPageToken string        `json:"nextPageToken"`
+	}
+	if err := json.Unmarshal([]byte(jsonOut), &parsed); err != nil {
+		t.Fatalf("json parse: %v\nout=%q", err, jsonOut)
+	}
+	if parsed.NextPageToken != "npt" || len(parsed.Files) != 2 {
+		t.Fatalf("unexpected json: %#v", parsed)
+	}
+}

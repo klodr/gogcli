@@ -24,6 +24,12 @@ func TestParseService(t *testing.T) {
 	}
 }
 
+func TestParseService_Invalid(t *testing.T) {
+	if _, err := ParseService("nope"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
 func TestExtractCodeAndState(t *testing.T) {
 	code, state, err := extractCodeAndState("http://localhost:1/?code=abc&state=xyz")
 	if err != nil {
@@ -31,6 +37,15 @@ func TestExtractCodeAndState(t *testing.T) {
 	}
 	if code != "abc" || state != "xyz" {
 		t.Fatalf("unexpected: code=%q state=%q", code, state)
+	}
+}
+
+func TestExtractCodeAndState_Errors(t *testing.T) {
+	if _, _, err := extractCodeAndState("not a url"); err == nil {
+		t.Fatalf("expected error")
+	}
+	if _, _, err := extractCodeAndState("http://localhost:1/?state=xyz"); err == nil {
+		t.Fatalf("expected error")
 	}
 }
 
@@ -82,5 +97,11 @@ func TestScopesForServices_UnionSorted(t *testing.T) {
 		if !found {
 			t.Fatalf("missing scope %q in %v", w, scopes)
 		}
+	}
+}
+
+func TestScopes_UnknownService(t *testing.T) {
+	if _, err := Scopes(Service("nope")); err == nil {
+		t.Fatalf("expected error")
 	}
 }
