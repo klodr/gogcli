@@ -17,7 +17,10 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-var openSecretsStore = secrets.OpenDefault
+var (
+	openSecretsStore = secrets.OpenDefault
+	authorizeGoogle  = googleauth.Authorize
+)
 
 func newAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -332,7 +335,7 @@ func newAuthAddCmd() *cobra.Command {
 				return err
 			}
 
-			refreshToken, err := googleauth.Authorize(cmd.Context(), googleauth.AuthorizeOptions{
+			refreshToken, err := authorizeGoogle(cmd.Context(), googleauth.AuthorizeOptions{
 				Services:     services,
 				Scopes:       scopes,
 				Manual:       manual,
