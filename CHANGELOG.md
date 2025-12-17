@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.2 - Unreleased
+
+### Added
+
+### Changed
+
+### Fixed
+
 ## 0.1.1 - 2025-12-17
 
 ### Added
