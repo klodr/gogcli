@@ -62,3 +62,48 @@ func TestExecute_PeopleMe_JSON(t *testing.T) {
 		t.Fatalf("unexpected person: %#v", parsed.Person)
 	}
 }
+
+func TestExecute_PeopleMe_Text(t *testing.T) {
+	origNew := newPeopleContactsService
+	t.Cleanup(func() { newPeopleContactsService = origNew })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !(strings.Contains(r.URL.Path, "/people/me") && r.Method == http.MethodGet) {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"resourceName": "people/me",
+			"names":        []map[string]any{{"displayName": "Peter"}},
+			"emailAddresses": []map[string]any{
+				{"value": "a@b.com"},
+			},
+			"photos": []map[string]any{
+				{"url": "https://example.com/p.jpg"},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	svc, err := people.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newPeopleContactsService = func(context.Context, string) (*people.Service, error) { return svc, nil }
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--output", "text", "--account", "a@b.com", "people", "me"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+	if !strings.Contains(out, "name\tPeter") || !strings.Contains(out, "email\ta@b.com") || !strings.Contains(out, "photo\thttps://example.com/p.jpg") {
+		t.Fatalf("unexpected out=%q", out)
+	}
+}
