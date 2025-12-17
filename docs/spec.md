@@ -142,8 +142,11 @@ Environment:
 - `gog calendar update <calendarId> <eventId> [--summary S] [--start DT] [--end DT] [--description D] [--location L] [--attendees ...] [--all-day]`
 - `gog calendar delete <calendarId> <eventId>`
 - `gog calendar freebusy <calendarIds> --from RFC3339 --to RFC3339`
+- `gog calendar respond <calendarId> <eventId> --status accepted|declined|tentative [--send-updates all|none|externalOnly]`
 - `gog gmail search <query> [--max N] [--page TOKEN]`
 - `gog gmail thread <threadId> [--download]`
+- `gog gmail get <messageId> [--format full|metadata|raw] [--headers ...]`
+- `gog gmail attachment <messageId> <attachmentId> [--out PATH] [--filename NAME]`
 - `gog gmail url <threadIds...>`
 - `gog gmail labels list`
 - `gog gmail labels modify <threadIds...> [--add ...] [--remove ...]`
@@ -163,6 +166,7 @@ Environment:
 - `gog contacts directory search <query> [--max N] [--page TOKEN]`
 - `gog contacts other list [--max N] [--page TOKEN]`
 - `gog contacts other search <query> [--max N]`
+- `gog people me`
 
 ### Planned high-level command tree
 
@@ -172,6 +176,7 @@ Environment:
 - `gog calendar …`
 - `gog drive …`
 - `gog contacts …`
+- `gog people …`
 
 Planned service identifiers (canonical):
 
@@ -179,6 +184,7 @@ Planned service identifiers (canonical):
 - `calendar`
 - `drive`
 - `contacts`
+- `people`
 
 ## Google API dependencies (planned)
 

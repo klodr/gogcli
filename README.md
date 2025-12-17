@@ -6,6 +6,7 @@ Minimal Google CLI in Go for:
 - Calendar
 - Drive
 - Contacts (People API)
+- People (profile / `people/me`)
 
 ## Install / Build
 
@@ -91,11 +92,14 @@ Calendar:
 - `gog calendar calendars`
 - `gog calendar events <calendarId> --from 2025-12-08T00:00:00+01:00 --to 2025-12-15T00:00:00+01:00 --max 250`
 - `gog calendar event <calendarId> <eventId>`
+- `gog calendar respond <calendarId> <eventId> --status accepted`
 
 Gmail:
 
 - `gog gmail search 'newer_than:7d' --max 10`
 - `gog gmail thread <threadId>`
+- `gog gmail get <messageId> --format metadata`
+- `gog gmail attachment <messageId> <attachmentId> --out ./attachment.bin`
 - `gog gmail labels list`
 - `gog gmail labels get INBOX --output=json` (includes counts)
 - `gog gmail send --to a@b.com --subject "Hi" --body "Hello"`
@@ -111,6 +115,10 @@ Workspace directory (requires Google Workspace account; `@gmail.com` won’t wor
 
 - `gog contacts directory list --max 50`
 - `gog contacts directory search "Jane" --max 50`
+
+People:
+
+- `gog people me`
 
 ## Environment
 

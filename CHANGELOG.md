@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.1 - 2025-12-17
+
+### Added
+
+- Calendar: respond to invites via `gog calendar respond <calendarId> <eventId> --status accepted|declined|tentative` (optional `--send-updates`).
+- People: `gog people me` (quick “me card” / `people/me`).
+- Gmail: message get via `gog gmail get <messageId> [--format full|metadata|raw]`.
+- Gmail: download a single attachment via `gog gmail attachment <messageId> <attachmentId> [--out PATH]`.
+
 ## 0.1.0 - 2025-12-12
 
 Initial public release of `gog`: a single Go CLI that unifies Gmail, Calendar, Drive, and Contacts (People API).
@@ -44,4 +53,3 @@ Initial public release of `gog`: a single Go CLI that unifies Gmail, Calendar, D
 
 - Importing tokens into macOS Keychain may require a local (GUI) session; headless/SSH sessions can fail due to Keychain user-interaction restrictions.
 - Workspace directory commands require a Google Workspace account; `@gmail.com` accounts will not work for directory endpoints.
-
