@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/base64"
+	"strings"
 	"testing"
 
 	"google.golang.org/api/gmail/v1"
@@ -97,5 +98,33 @@ func TestDecodeBase64URLBytes(t *testing.T) {
 	}
 	if !bytes.Equal(got, want[:1]) {
 		t.Fatalf("unexpected: %#v", got)
+	}
+
+	// Ensure we cover the '-' base64url alphabet as well.
+	wantDash := []byte{0xfb}
+	encDash := base64.RawURLEncoding.EncodeToString(wantDash)
+	if !strings.Contains(encDash, "-") {
+		t.Fatalf("expected '-' in encoding, got: %q", encDash)
+	}
+	got, err = decodeBase64URLBytes(encDash)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if !bytes.Equal(got, wantDash) {
+		t.Fatalf("unexpected: %#v", got)
+	}
+
+	encDashPadded := base64.URLEncoding.EncodeToString(wantDash)
+	encDashPadded = " " + encDashPadded[:2] + "\n" + encDashPadded[2:] + "\t"
+	got, err = decodeBase64URLBytes(encDashPadded)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if !bytes.Equal(got, wantDash) {
+		t.Fatalf("unexpected: %#v", got)
+	}
+
+	if _, err := decodeBase64URLBytes("!!!"); err == nil {
+		t.Fatalf("expected error")
 	}
 }
