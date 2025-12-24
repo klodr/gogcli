@@ -34,18 +34,22 @@ type Token struct {
 
 const keyringPasswordEnv = "GOG_KEYRING_PASSWORD"
 
-func fileKeyringPasswordFunc() keyring.PromptFunc {
-	if pw := os.Getenv(keyringPasswordEnv); pw != "" {
-		return keyring.FixedStringPrompt(pw)
+func fileKeyringPasswordFuncFrom(password string, isTTY bool) keyring.PromptFunc {
+	if password != "" {
+		return keyring.FixedStringPrompt(password)
 	}
 
-	if term.IsTerminal(int(os.Stdin.Fd())) {
+	if isTTY {
 		return keyring.TerminalPrompt
 	}
 
 	return func(_ string) (string, error) {
 		return "", fmt.Errorf("no TTY available for keyring file backend password prompt; set %s", keyringPasswordEnv)
 	}
+}
+
+func fileKeyringPasswordFunc() keyring.PromptFunc {
+	return fileKeyringPasswordFuncFrom(os.Getenv(keyringPasswordEnv), term.IsTerminal(int(os.Stdin.Fd())))
 }
 
 func OpenDefault() (Store, error) {
