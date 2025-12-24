@@ -239,3 +239,23 @@ func TestGmailWatchServerServeHTTP_TruncateBody(t *testing.T) {
 		t.Fatalf("unexpected body: %#v", msg)
 	}
 }
+
+func TestDecodeGmailPushPayload_NumberHistoryID(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"emailAddress": "a@b.com",
+		"historyId":    1234,
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	env := &pubsubPushEnvelope{}
+	env.Message.Data = base64.StdEncoding.EncodeToString(payload)
+	got, err := decodeGmailPushPayload(env)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.HistoryID != "1234" {
+		t.Fatalf("unexpected history id: %q", got.HistoryID)
+	}
+}

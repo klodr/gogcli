@@ -1,6 +1,11 @@
 package cmd
 
-import "time"
+import (
+	"encoding/json"
+	"errors"
+	"strings"
+	"time"
+)
 
 const (
 	defaultWatchPath             = "/gmail-pubsub"
@@ -68,6 +73,34 @@ type pubsubPushEnvelope struct {
 type gmailPushPayload struct {
 	EmailAddress string `json:"emailAddress"`
 	HistoryID    string `json:"historyId"`
+}
+
+func (p *gmailPushPayload) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		EmailAddress string          `json:"emailAddress"`
+		HistoryID    json.RawMessage `json:"historyId"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	p.EmailAddress = raw.EmailAddress
+	if len(raw.HistoryID) == 0 {
+		p.HistoryID = ""
+		return nil
+	}
+	var asString string
+	if err := json.Unmarshal(raw.HistoryID, &asString); err == nil {
+		p.HistoryID = asString
+		return nil
+	}
+	var asNumber json.Number
+	if err := json.Unmarshal(raw.HistoryID, &asNumber); err == nil {
+		if v := strings.TrimSpace(asNumber.String()); v != "" {
+			p.HistoryID = v
+			return nil
+		}
+	}
+	return errors.New("historyId must be string or number")
 }
 
 type gmailHookMessage struct {
