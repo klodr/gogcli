@@ -3,13 +3,11 @@ package secrets
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/99designs/keyring"
 	"github.com/steipete/gogcli/internal/config"
-	"golang.org/x/term"
 )
 
 type Store interface {
@@ -18,6 +16,8 @@ type Store interface {
 	GetToken(email string) (Token, error)
 	DeleteToken(email string) error
 	ListTokens() ([]Token, error)
+	GetDefaultAccount() (string, error)
+	SetDefaultAccount(email string) error
 }
 
 type KeyringStore struct {
@@ -32,39 +32,9 @@ type Token struct {
 	RefreshToken string    `json:"-"`
 }
 
-const keyringPasswordEnv = "GOG_KEYRING_PASSWORD"
-
-func fileKeyringPasswordFuncFrom(password string, isTTY bool) keyring.PromptFunc {
-	if password != "" {
-		return keyring.FixedStringPrompt(password)
-	}
-
-	if isTTY {
-		return keyring.TerminalPrompt
-	}
-
-	return func(_ string) (string, error) {
-		return "", fmt.Errorf("no TTY available for keyring file backend password prompt; set %s", keyringPasswordEnv)
-	}
-}
-
-func fileKeyringPasswordFunc() keyring.PromptFunc {
-	return fileKeyringPasswordFuncFrom(os.Getenv(keyringPasswordEnv), term.IsTerminal(int(os.Stdin.Fd())))
-}
-
 func OpenDefault() (Store, error) {
-	// On Linux/WSL/containers, OS keychains (secret-service/kwallet) may be unavailable.
-	// In that case github.com/99designs/keyring falls back to the "file" backend,
-	// which *requires* both a directory and a password prompt function.
-	keyringDir, err := config.EnsureKeyringDir()
-	if err != nil {
-		return nil, err
-	}
-
 	ring, err := keyring.Open(keyring.Config{
-		ServiceName:      config.AppName,
-		FileDir:          keyringDir,
-		FilePasswordFunc: fileKeyringPasswordFunc(),
+		ServiceName: config.AppName,
 	})
 	if err != nil {
 		return nil, err
@@ -179,4 +149,26 @@ func tokenKey(email string) string {
 
 func normalize(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))
+}
+
+const defaultAccountKey = "default_account"
+
+func (s *KeyringStore) GetDefaultAccount() (string, error) {
+	it, err := s.ring.Get(defaultAccountKey)
+	if err != nil {
+		// If not found, return empty string (no default set)
+		return "", nil
+	}
+	return string(it.Data), nil
+}
+
+func (s *KeyringStore) SetDefaultAccount(email string) error {
+	email = normalize(email)
+	if email == "" {
+		return fmt.Errorf("missing email")
+	}
+	return s.ring.Set(keyring.Item{
+		Key:  defaultAccountKey,
+		Data: []byte(email),
+	})
 }

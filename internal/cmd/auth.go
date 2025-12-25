@@ -17,10 +17,7 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-var (
-	openSecretsStore = secrets.OpenDefault
-	authorizeGoogle  = googleauth.Authorize
-)
+var openSecretsStore = secrets.OpenDefault
 
 func newAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -33,6 +30,7 @@ func newAuthCmd() *cobra.Command {
 	cmd.AddCommand(newAuthListCmd())
 	cmd.AddCommand(newAuthRemoveCmd())
 	cmd.AddCommand(newAuthTokensCmd())
+	cmd.AddCommand(newAuthManageCmd())
 	return cmd
 }
 
@@ -179,7 +177,7 @@ func newAuthTokensExportCmd() *cobra.Command {
 			if openErr != nil {
 				return openErr
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 
 			type export struct {
 				Email        string   `json:"email"`
@@ -335,7 +333,7 @@ func newAuthAddCmd() *cobra.Command {
 				return err
 			}
 
-			refreshToken, err := authorizeGoogle(cmd.Context(), googleauth.AuthorizeOptions{
+			refreshToken, err := googleauth.Authorize(cmd.Context(), googleauth.AuthorizeOptions{
 				Services:     services,
 				Scopes:       scopes,
 				Manual:       manual,
@@ -378,7 +376,7 @@ func newAuthAddCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&manual, "manual", false, "Browserless auth flow (paste redirect URL)")
 	cmd.Flags().BoolVar(&forceConsent, "force-consent", false, "Force consent screen to obtain a refresh token")
-	cmd.Flags().StringVar(&servicesCSV, "services", "all", "Services to authorize: all or comma-separated gmail,calendar,drive,contacts,tasks,people")
+	cmd.Flags().StringVar(&servicesCSV, "services", "all", "Services to authorize: all or comma-separated gmail,calendar,drive,contacts,sheets")
 	return cmd
 }
 
@@ -462,4 +460,48 @@ func newAuthRemoveCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newAuthManageCmd() *cobra.Command {
+	var forceConsent bool
+	var servicesCSV string
+	var timeout time.Duration
+
+	cmd := &cobra.Command{
+		Use:   "manage",
+		Short: "Open accounts manager in browser",
+		Long:  "Opens a browser-based UI to manage Google accounts, add new accounts, set defaults, and remove accounts.",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			var services []googleauth.Service
+			if strings.EqualFold(strings.TrimSpace(servicesCSV), "") || strings.EqualFold(strings.TrimSpace(servicesCSV), "all") {
+				services = googleauth.AllServices()
+			} else {
+				parts := strings.Split(servicesCSV, ",")
+				seen := make(map[googleauth.Service]struct{})
+				for _, p := range parts {
+					svc, err := googleauth.ParseService(p)
+					if err != nil {
+						return err
+					}
+					if _, ok := seen[svc]; ok {
+						continue
+					}
+					seen[svc] = struct{}{}
+					services = append(services, svc)
+				}
+			}
+
+			return googleauth.StartManageServer(cmd.Context(), googleauth.ManageServerOptions{
+				Timeout:      timeout,
+				Services:     services,
+				ForceConsent: forceConsent,
+			})
+		},
+	}
+
+	cmd.Flags().BoolVar(&forceConsent, "force-consent", false, "Force consent screen when adding accounts")
+	cmd.Flags().StringVar(&servicesCSV, "services", "all", "Services to authorize: all or comma-separated gmail,calendar,drive,contacts,sheets")
+	cmd.Flags().DurationVar(&timeout, "timeout", 10*time.Minute, "Server timeout duration")
+	return cmd
 }

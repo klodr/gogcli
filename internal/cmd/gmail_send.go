@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 
@@ -18,26 +19,25 @@ func newGmailSendCmd(flags *rootFlags) *cobra.Command {
 	var bcc string
 	var subject string
 	var body string
-	var bodyHTML string
 	var replyTo string
-	var replyToAddress string
 	var attach []string
+	var from string
 
 	cmd := &cobra.Command{
 		Use:   "send",
 		Short: "Send an email",
-		Args:  cobra.NoArgs,
+		Long: `Send an email. Use --from to send from a configured send-as alias.
+
+To see available send-as aliases: gogcli gmail sendas list`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			u := ui.FromContext(cmd.Context())
 			account, err := requireAccount(flags)
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(to) == "" || strings.TrimSpace(subject) == "" {
-				return errors.New("required: --to, --subject")
-			}
-			if strings.TrimSpace(body) == "" && strings.TrimSpace(bodyHTML) == "" {
-				return errors.New("required: --body or --body-html")
+			if strings.TrimSpace(to) == "" || strings.TrimSpace(subject) == "" || strings.TrimSpace(body) == "" {
+				return errors.New("required: --to, --subject, --body")
 			}
 
 			svc, err := newGmailService(cmd.Context(), account)
@@ -45,7 +45,27 @@ func newGmailSendCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			inReplyTo, references, threadID, err := replyHeaders(cmd, svc, replyTo)
+			// Determine the From address
+			fromAddr := account
+			if strings.TrimSpace(from) != "" {
+				// Validate that this is a configured send-as alias
+				var sa *gmail.SendAs
+				sa, err = svc.Users.Settings.SendAs.Get("me", from).Do()
+				if err != nil {
+					return fmt.Errorf("invalid --from address %q: %w", from, err)
+				}
+				if sa.VerificationStatus != "accepted" {
+					return fmt.Errorf("--from address %q is not verified (status: %s)", from, sa.VerificationStatus)
+				}
+				fromAddr = from
+				// Include display name if set
+				if sa.DisplayName != "" {
+					fromAddr = sa.DisplayName + " <" + from + ">"
+				}
+			}
+
+			var inReplyTo, references, threadID string
+			inReplyTo, references, threadID, err = replyHeaders(cmd, svc, replyTo)
 			if err != nil {
 				return err
 			}
@@ -56,14 +76,12 @@ func newGmailSendCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			raw, err := buildRFC822(mailOptions{
-				From:        account,
+				From:        fromAddr,
 				To:          splitCSV(to),
 				Cc:          splitCSV(cc),
 				Bcc:         splitCSV(bcc),
-				ReplyTo:     replyToAddress,
 				Subject:     subject,
 				Body:        body,
-				BodyHTML:    bodyHTML,
 				InReplyTo:   inReplyTo,
 				References:  references,
 				Attachments: atts,
@@ -79,7 +97,7 @@ func newGmailSendCmd(flags *rootFlags) *cobra.Command {
 				msg.ThreadId = threadID
 			}
 
-			sent, err := svc.Users.Messages.Send("me", msg).Do()
+			sent, err := svc.Users.Messages.Send("me", msg).Context(cmd.Context()).Do()
 			if err != nil {
 				return err
 			}
@@ -87,6 +105,7 @@ func newGmailSendCmd(flags *rootFlags) *cobra.Command {
 				return outfmt.WriteJSON(os.Stdout, map[string]any{
 					"messageId": sent.Id,
 					"threadId":  sent.ThreadId,
+					"from":      fromAddr,
 				})
 			}
 			u.Out().Printf("message_id\t%s", sent.Id)
@@ -101,11 +120,10 @@ func newGmailSendCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&cc, "cc", "", "CC recipients (comma-separated)")
 	cmd.Flags().StringVar(&bcc, "bcc", "", "BCC recipients (comma-separated)")
 	cmd.Flags().StringVar(&subject, "subject", "", "Subject (required)")
-	cmd.Flags().StringVar(&body, "body", "", "Body (plain text; required unless --body-html is set)")
-	cmd.Flags().StringVar(&bodyHTML, "body-html", "", "Body (HTML; optional)")
+	cmd.Flags().StringVar(&body, "body", "", "Body (required)")
 	cmd.Flags().StringVar(&replyTo, "reply-to", "", "Reply to message ID (sets In-Reply-To/References and thread)")
-	cmd.Flags().StringVar(&replyToAddress, "reply-to-address", "", "Reply-To header address")
 	cmd.Flags().StringSliceVar(&attach, "attach", nil, "Attachment file path (repeatable)")
+	cmd.Flags().StringVar(&from, "from", "", "Send from this email address (must be a verified send-as alias)")
 	return cmd
 }
 
