@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 - Unreleased
+
+### Changed
+
+- macOS: always trust the `gog` binary in Keychain (removed `GOG_KEYCHAIN_TRUST_APPLICATION`).
+
 ## 0.2.1 - 2025-12-26
 
 ### Fixed
