@@ -49,11 +49,12 @@ func newDriveLsCmd(flags *rootFlags) *cobra.Command {
 	var max int64
 	var page string
 	var query string
+	var parent string
 
 	cmd := &cobra.Command{
-		Use:   "ls [folderId]",
+		Use:   "ls",
 		Short: "List files in a folder (default: root)",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := ui.FromContext(cmd.Context())
 			account, err := requireAccount(flags)
@@ -61,9 +62,9 @@ func newDriveLsCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			folderID := "root"
-			if len(args) == 1 {
-				folderID = args[0]
+			folderID := strings.TrimSpace(parent)
+			if folderID == "" {
+				folderID = "root"
 			}
 
 			svc, err := newDriveService(cmd.Context(), account)
@@ -130,6 +131,7 @@ func newDriveLsCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().Int64Var(&max, "max", 20, "Max results")
 	cmd.Flags().StringVar(&page, "page", "", "Page token")
 	cmd.Flags().StringVar(&query, "query", "", "Drive query filter")
+	cmd.Flags().StringVar(&parent, "parent", "", "Folder ID to list (default: root)")
 	return cmd
 }
 
@@ -328,7 +330,7 @@ func newDriveDownloadCmd(flags *rootFlags) *cobra.Command {
 
 func newDriveUploadCmd(flags *rootFlags) *cobra.Command {
 	var name string
-	var folderID string
+	var parent string
 
 	cmd := &cobra.Command{
 		Use:   "upload <localPath>",
@@ -359,8 +361,9 @@ func newDriveUploadCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			meta := &drive.File{Name: fileName}
-			if folderID != "" {
-				meta.Parents = []string{folderID}
+			parent = strings.TrimSpace(parent)
+			if parent != "" {
+				meta.Parents = []string{parent}
 			}
 
 			mimeType := guessMimeType(localPath)
@@ -387,7 +390,7 @@ func newDriveUploadCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Override filename")
-	cmd.Flags().StringVar(&folderID, "folder", "", "Destination folder ID")
+	cmd.Flags().StringVar(&parent, "parent", "", "Destination folder ID")
 	return cmd
 }
 
@@ -484,10 +487,12 @@ func newDriveDeleteCmd(flags *rootFlags) *cobra.Command {
 }
 
 func newDriveMoveCmd(flags *rootFlags) *cobra.Command {
-	return &cobra.Command{
-		Use:   "move <fileId> <newParentId>",
+	var parent string
+
+	cmd := &cobra.Command{
+		Use:   "move <fileId>",
 		Short: "Move a file to a different folder",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := ui.FromContext(cmd.Context())
 			account, err := requireAccount(flags)
@@ -495,7 +500,10 @@ func newDriveMoveCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			fileID := args[0]
-			newParentID := args[1]
+			parent = strings.TrimSpace(parent)
+			if parent == "" {
+				return usage("missing --parent")
+			}
 
 			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
@@ -512,7 +520,7 @@ func newDriveMoveCmd(flags *rootFlags) *cobra.Command {
 
 			call := svc.Files.Update(fileID, &drive.File{}).
 				SupportsAllDrives(true).
-				AddParents(newParentID).
+				AddParents(parent).
 				Fields("id, name, parents, webViewLink")
 			if len(meta.Parents) > 0 {
 				call = call.RemoveParents(strings.Join(meta.Parents, ","))
@@ -532,6 +540,9 @@ func newDriveMoveCmd(flags *rootFlags) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&parent, "parent", "", "New parent folder ID (required)")
+	return cmd
 }
 
 func newDriveRenameCmd(flags *rootFlags) *cobra.Command {
