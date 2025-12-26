@@ -5,6 +5,7 @@
 ### Added
 
 - Calendar: `gog calendar calendars` and `gog calendar acl` now support `--max` and `--page` (JSON includes `nextPageToken`).
+- Drive: `gog drive permissions` now supports `--max` and `--page` (JSON includes `nextPageToken`).
 
 ### Changed
 
