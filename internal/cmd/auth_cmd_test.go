@@ -152,6 +152,16 @@ func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
 	}
 }
 
+func TestAuthTokensExport_RequiresOut(t *testing.T) {
+	err := Execute([]string{"--output", "json", "auth", "tokens", "export", "a@b.com"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "empty outPath") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestAuthListRemoveTokensListDelete_JSON(t *testing.T) {
 	origOpen := openSecretsStore
 	t.Cleanup(func() { openSecretsStore = origOpen })
