@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.2.1 - Unreleased
+## 0.2.1 - 2025-12-26
+
+### Fixed
+
+- macOS: reduce repeated Keychain password prompts by trusting the `gog` binary by default (set `GOG_KEYCHAIN_TRUST_APPLICATION=0` to disable).
 
 ## 0.2.0 - 2025-12-24
 
