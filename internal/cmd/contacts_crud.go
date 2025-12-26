@@ -259,10 +259,6 @@ func newContactsUpdateCmd(flags *rootFlags) *cobra.Command {
 				return usage("resourceName must start with people/")
 			}
 
-			if confirmErr := confirmDestructive(cmd, flags, fmt.Sprintf("delete contact %s", resourceName)); confirmErr != nil {
-				return confirmErr
-			}
-
 			svc, err := newPeopleContactsService(cmd.Context(), account)
 			if err != nil {
 				return err
@@ -348,6 +344,10 @@ func newContactsDeleteCmd(flags *rootFlags) *cobra.Command {
 			resourceName := strings.TrimSpace(args[0])
 			if !strings.HasPrefix(resourceName, "people/") {
 				return usage("resourceName must start with people/")
+			}
+
+			if confirmErr := confirmDestructive(cmd, flags, fmt.Sprintf("delete contact %s", resourceName)); confirmErr != nil {
+				return confirmErr
 			}
 
 			svc, err := newPeopleContactsService(cmd.Context(), account)

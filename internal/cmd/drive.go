@@ -226,10 +226,6 @@ func newDriveGetCmd(flags *rootFlags) *cobra.Command {
 			}
 			fileID := args[0]
 
-			if confirmErr := confirmDestructive(cmd, flags, fmt.Sprintf("delete drive file %s", fileID)); confirmErr != nil {
-				return confirmErr
-			}
-
 			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
 				return err
@@ -461,6 +457,10 @@ func newDriveDeleteCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			fileID := args[0]
+
+			if confirmErr := confirmDestructive(cmd, flags, fmt.Sprintf("delete drive file %s", fileID)); confirmErr != nil {
+				return confirmErr
+			}
 
 			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {

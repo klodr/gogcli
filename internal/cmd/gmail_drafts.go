@@ -125,10 +125,6 @@ func newGmailDraftsGetCmd(flags *rootFlags) *cobra.Command {
 			}
 			draftID := args[0]
 
-			if confirmErr := confirmDestructive(cmd, flags, fmt.Sprintf("delete gmail draft %s", draftID)); confirmErr != nil {
-				return confirmErr
-			}
-
 			svc, err := newGmailService(cmd.Context(), account)
 			if err != nil {
 				return err
@@ -240,6 +236,10 @@ func newGmailDraftsDeleteCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			draftID := args[0]
+
+			if confirmErr := confirmDestructive(cmd, flags, fmt.Sprintf("delete gmail draft %s", draftID)); confirmErr != nil {
+				return confirmErr
+			}
 
 			svc, err := newGmailService(cmd.Context(), account)
 			if err != nil {

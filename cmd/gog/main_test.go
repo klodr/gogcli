@@ -28,7 +28,7 @@ func TestMainExitOnError(t *testing.T) {
 		t.Fatalf("expected exit error")
 	}
 	if ee, ok := err.(*exec.ExitError); ok {
-		if ee.ExitCode() != 1 {
+		if ee.ExitCode() != 2 {
 			t.Fatalf("exit=%d", ee.ExitCode())
 		}
 		return

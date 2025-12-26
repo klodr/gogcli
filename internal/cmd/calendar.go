@@ -263,10 +263,6 @@ func newCalendarEventCmd(flags *rootFlags) *cobra.Command {
 			calendarID := args[0]
 			eventID := args[1]
 
-			if confirmErr := confirmDestructive(cmd, flags, fmt.Sprintf("delete calendar event %s/%s", calendarID, eventID)); confirmErr != nil {
-				return confirmErr
-			}
-
 			svc, err := newCalendarService(cmd.Context(), account)
 			if err != nil {
 				return err
@@ -397,6 +393,10 @@ func newCalendarUpdateCmd(flags *rootFlags) *cobra.Command {
 			}
 			calendarID := args[0]
 			eventID := args[1]
+
+			if confirmErr := confirmDestructive(cmd, flags, fmt.Sprintf("delete calendar event %s/%s", calendarID, eventID)); confirmErr != nil {
+				return confirmErr
+			}
 
 			svc, err := newCalendarService(cmd.Context(), account)
 			if err != nil {
