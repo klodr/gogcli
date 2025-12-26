@@ -270,3 +270,149 @@ func TestExecute_DriveDownload_GoogleSheet_PDF(t *testing.T) {
 		t.Fatalf("file mismatch: err=%v body=%q", err, string(b))
 	}
 }
+
+func TestExecute_DriveDownload_GoogleDoc_DOCX(t *testing.T) {
+	origNew := newDriveService
+	origExport := driveExportDownload
+	t.Cleanup(func() {
+		newDriveService = origNew
+		driveExportDownload = origExport
+	})
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":       "doc1",
+			"name":     "My Doc",
+			"mimeType": "application/vnd.google-apps.document",
+		})
+	}))
+	defer srv.Close()
+
+	svc, err := drive.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
+
+	var gotMime string
+	driveExportDownload = func(_ context.Context, _ *drive.Service, fileID string, mimeType string) (*http.Response, error) {
+		if fileID != "doc1" {
+			t.Fatalf("fileID=%q", fileID)
+		}
+		gotMime = mimeType
+		return &http.Response{
+			Status:     "200 OK",
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("DOCX-FAKE")),
+		}, nil
+	}
+
+	dest := filepath.Join(t.TempDir(), "out")
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "drive", "download", "doc1", "--format", "docx", "--out", dest}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+
+	if gotMime != "application/vnd.openxmlformats-officedocument.wordprocessingml.document" {
+		t.Fatalf("mimeType=%q", gotMime)
+	}
+
+	var parsed struct {
+		Path string `json:"path"`
+		Size int64  `json:"size"`
+	}
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("json parse: %v\nout=%q", err, out)
+	}
+	if !strings.HasSuffix(parsed.Path, ".docx") {
+		t.Fatalf("expected .docx path, got %q", parsed.Path)
+	}
+	if b, err := os.ReadFile(parsed.Path); err != nil || string(b) != "DOCX-FAKE" {
+		t.Fatalf("file mismatch: err=%v body=%q", err, string(b))
+	}
+}
+
+func TestExecute_DriveDownload_GoogleSlides_PPTX(t *testing.T) {
+	origNew := newDriveService
+	origExport := driveExportDownload
+	t.Cleanup(func() {
+		newDriveService = origNew
+		driveExportDownload = origExport
+	})
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":       "slides1",
+			"name":     "My Slides",
+			"mimeType": "application/vnd.google-apps.presentation",
+		})
+	}))
+	defer srv.Close()
+
+	svc, err := drive.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
+
+	var gotMime string
+	driveExportDownload = func(_ context.Context, _ *drive.Service, fileID string, mimeType string) (*http.Response, error) {
+		if fileID != "slides1" {
+			t.Fatalf("fileID=%q", fileID)
+		}
+		gotMime = mimeType
+		return &http.Response{
+			Status:     "200 OK",
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("PPTX-FAKE")),
+		}, nil
+	}
+
+	dest := filepath.Join(t.TempDir(), "out")
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "drive", "download", "slides1", "--format", "pptx", "--out", dest}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+
+	if gotMime != "application/vnd.openxmlformats-officedocument.presentationml.presentation" {
+		t.Fatalf("mimeType=%q", gotMime)
+	}
+
+	var parsed struct {
+		Path string `json:"path"`
+		Size int64  `json:"size"`
+	}
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("json parse: %v\nout=%q", err, out)
+	}
+	if !strings.HasSuffix(parsed.Path, ".pptx") {
+		t.Fatalf("expected .pptx path, got %q", parsed.Path)
+	}
+	if b, err := os.ReadFile(parsed.Path); err != nil || string(b) != "PPTX-FAKE" {
+		t.Fatalf("file mismatch: err=%v body=%q", err, string(b))
+	}
+}

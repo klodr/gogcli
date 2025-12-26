@@ -336,7 +336,7 @@ func newDriveDownloadCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&outPathFlag, "out", "", "Output file path (default: gogcli config dir)")
-	cmd.Flags().StringVar(&format, "format", "", "Export format for Google Docs files: pdf|csv|xlsx|pptx|txt|png (default: auto)")
+	cmd.Flags().StringVar(&format, "format", "", "Export format for Google Docs files: pdf|csv|xlsx|pptx|txt|png|docx (default: auto)")
 	return cmd
 }
 
@@ -1031,10 +1031,12 @@ func driveExportMimeTypeForFormat(googleMimeType string, format string) (string,
 		switch format {
 		case "pdf":
 			return "application/pdf", nil
+		case "docx":
+			return "application/vnd.openxmlformats-officedocument.wordprocessingml.document", nil
 		case "txt":
 			return "text/plain", nil
 		default:
-			return "", fmt.Errorf("invalid --format %q for Google Doc (use pdf|txt)", format)
+			return "", fmt.Errorf("invalid --format %q for Google Doc (use pdf|docx|txt)", format)
 		}
 	case "application/vnd.google-apps.spreadsheet":
 		switch format {
@@ -1081,6 +1083,8 @@ func driveExportExtension(mimeType string) string {
 		return ".csv"
 	case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
 		return ".xlsx"
+	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		return ".docx"
 	case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
 		return ".pptx"
 	case "image/png":
