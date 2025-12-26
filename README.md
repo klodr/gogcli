@@ -249,20 +249,20 @@ gog calendar search "meeting" --from 2025-01-01T00:00:00Z --to 2025-01-31T00:00:
 # Create and update
 gog calendar create <calendarId> \
   --summary "Meeting" \
-  --start 2025-01-15T10:00:00Z \
-  --end 2025-01-15T11:00:00Z
+  --from 2025-01-15T10:00:00Z \
+  --to 2025-01-15T11:00:00Z
 
 gog calendar create <calendarId> \
   --summary "Team Sync" \
-  --start 2025-01-15T14:00:00Z \
-  --end 2025-01-15T15:00:00Z \
-  --organizer organizer@example.com \
-  --color 5
+  --from 2025-01-15T14:00:00Z \
+  --to 2025-01-15T15:00:00Z \
+  --attendees "alice@example.com,bob@example.com" \
+  --location "Zoom"
 
 gog calendar update <calendarId> <eventId> \
   --summary "Updated Meeting" \
-  --start 2025-01-15T11:00:00Z \
-  --end 2025-01-15T12:00:00Z
+  --from 2025-01-15T11:00:00Z \
+  --to 2025-01-15T12:00:00Z
 
 gog calendar delete <calendarId> <eventId>
 
@@ -286,20 +286,23 @@ gog calendar conflicts --calendars "primary,work@example.com" \
 ```bash
 # List and search
 gog drive ls --max 20
-gog drive ls <folderId> --max 20      # List folder contents
+gog drive ls --parent <folderId> --max 20
 gog drive search "invoice" --max 20
 gog drive get <fileId>                # Get file metadata
 gog drive url <fileId>                # Print Drive web URL
 
 # Upload and download
-gog drive upload ./path/to/file --folder <folderId>
-gog drive download <fileId>
+gog drive upload ./path/to/file --parent <folderId>
+gog drive download <fileId> --out ./downloaded.bin
+gog drive download <fileId> --format pdf --out ./exported.pdf
+gog drive download <fileId> --format docx --out ./doc.docx
+gog drive download <fileId> --format pptx --out ./slides.pptx
 
 # Organize
 gog drive mkdir "New Folder"
 gog drive mkdir "New Folder" --parent <parentFolderId>
 gog drive rename <fileId> "New Name"
-gog drive move <fileId> --folder <destinationFolderId>
+gog drive move <fileId> --parent <destinationFolderId>
 gog drive delete <fileId>             # Move to trash
 
 # Permissions
@@ -363,6 +366,10 @@ gog tasks clear <tasklistId>
 # Read
 gog sheets metadata <spreadsheetId>
 gog sheets get <spreadsheetId> 'Sheet1!A1:B10'
+
+# Export (via Drive)
+gog drive download <spreadsheetId> --format pdf --out ./sheet.pdf
+gog drive download <spreadsheetId> --format xlsx --out ./sheet.xlsx
 
 # Write
 gog sheets update <spreadsheetId> 'A1' 'val1|val2,val3|val4'
@@ -448,8 +455,8 @@ gog calendar freebusy --calendars "primary" \
 # Create the meeting
 gog calendar create primary \
   --summary "Team Standup" \
-  --start 2025-01-15T10:00:00Z \
-  --end 2025-01-15T10:30:00Z \
+  --from 2025-01-15T10:00:00Z \
+  --to 2025-01-15T10:30:00Z \
   --attendees "alice@example.com,bob@example.com"
 ```
 
