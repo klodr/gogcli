@@ -26,8 +26,8 @@ func TestExecute_GmailSend_ReplyToHeader(t *testing.T) {
 				t.Fatalf("ReadAll: %v", err)
 			}
 			var msg gmail.Message
-			if err := json.Unmarshal(body, &msg); err != nil {
-				t.Fatalf("unmarshal: %v body=%q", err, string(body))
+			if unmarshalErr := json.Unmarshal(body, &msg); unmarshalErr != nil {
+				t.Fatalf("unmarshal: %v body=%q", unmarshalErr, string(body))
 			}
 			raw, err := base64.RawURLEncoding.DecodeString(msg.Raw)
 			if err != nil {
@@ -101,8 +101,8 @@ func TestExecute_GmailSend_ReplyToMessageID(t *testing.T) {
 				t.Fatalf("ReadAll: %v", err)
 			}
 			var msg gmail.Message
-			if err := json.Unmarshal(body, &msg); err != nil {
-				t.Fatalf("unmarshal: %v body=%q", err, string(body))
+			if unmarshalErr := json.Unmarshal(body, &msg); unmarshalErr != nil {
+				t.Fatalf("unmarshal: %v body=%q", unmarshalErr, string(body))
 			}
 			if msg.ThreadId != "t0" {
 				t.Fatalf("expected threadId=t0, got: %q", msg.ThreadId)
@@ -180,8 +180,8 @@ func TestExecute_GmailDraftsCreate_ReplyToMessageID(t *testing.T) {
 				t.Fatalf("ReadAll: %v", err)
 			}
 			var draft gmail.Draft
-			if err := json.Unmarshal(body, &draft); err != nil {
-				t.Fatalf("unmarshal: %v body=%q", err, string(body))
+			if unmarshalErr := json.Unmarshal(body, &draft); unmarshalErr != nil {
+				t.Fatalf("unmarshal: %v body=%q", unmarshalErr, string(body))
 			}
 			if draft.Message == nil {
 				t.Fatalf("expected message in draft")
