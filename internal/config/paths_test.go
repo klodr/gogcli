@@ -3,11 +3,10 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
-func TestEnsureDirAndPaths(t *testing.T) {
+func TestPaths_CreateDirs(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
@@ -16,33 +15,49 @@ func TestEnsureDirAndPaths(t *testing.T) {
 		t.Fatalf("EnsureDir: %v", err)
 	}
 	if _, statErr := os.Stat(dir); statErr != nil {
-		t.Fatalf("stat dir: %v", statErr)
+		t.Fatalf("expected dir: %v", statErr)
 	}
-	if !strings.Contains(dir, AppName) {
-		t.Fatalf("expected app name in path: %q", dir)
+	if filepath.Base(dir) != AppName {
+		t.Fatalf("unexpected base: %q", filepath.Base(dir))
 	}
 
-	credPath, err := ClientCredentialsPath()
+	keyringDir, err := EnsureKeyringDir()
 	if err != nil {
-		t.Fatalf("ClientCredentialsPath: %v", err)
+		t.Fatalf("EnsureKeyringDir: %v", err)
 	}
-	if filepath.Base(credPath) != "credentials.json" {
-		t.Fatalf("unexpected credentials base: %q", filepath.Base(credPath))
+	if _, statErr := os.Stat(keyringDir); statErr != nil {
+		t.Fatalf("expected keyring dir: %v", statErr)
 	}
 
-	dd, err := EnsureDriveDownloadsDir()
+	downloadsDir, err := EnsureDriveDownloadsDir()
 	if err != nil {
 		t.Fatalf("EnsureDriveDownloadsDir: %v", err)
 	}
-	if _, statErr := os.Stat(dd); statErr != nil {
-		t.Fatalf("stat drive downloads dir: %v", statErr)
+	if _, statErr := os.Stat(downloadsDir); statErr != nil {
+		t.Fatalf("expected downloads dir: %v", statErr)
 	}
 
-	ad, err := EnsureGmailAttachmentsDir()
+	attachmentsDir, err := EnsureGmailAttachmentsDir()
 	if err != nil {
 		t.Fatalf("EnsureGmailAttachmentsDir: %v", err)
 	}
-	if _, statErr := os.Stat(ad); statErr != nil {
-		t.Fatalf("stat gmail attachments dir: %v", statErr)
+	if _, statErr := os.Stat(attachmentsDir); statErr != nil {
+		t.Fatalf("expected attachments dir: %v", statErr)
+	}
+
+	watchDir, err := EnsureGmailWatchDir()
+	if err != nil {
+		t.Fatalf("EnsureGmailWatchDir: %v", err)
+	}
+	if _, statErr := os.Stat(watchDir); statErr != nil {
+		t.Fatalf("expected watch dir: %v", statErr)
+	}
+
+	credsPath, err := ClientCredentialsPath()
+	if err != nil {
+		t.Fatalf("ClientCredentialsPath: %v", err)
+	}
+	if filepath.Base(credsPath) != "credentials.json" {
+		t.Fatalf("unexpected creds file: %q", filepath.Base(credsPath))
 	}
 }

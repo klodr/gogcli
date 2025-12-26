@@ -69,3 +69,23 @@ func TestKeyringStore_TokenRoundtrip(t *testing.T) {
 		t.Fatalf("expected error after delete")
 	}
 }
+
+func TestKeyringStore_DefaultAccount_Roundtrip(t *testing.T) {
+	s := &KeyringStore{ring: keyring.NewArrayKeyring(nil)}
+
+	// Missing default should be empty without error.
+	if got, err := s.GetDefaultAccount(); err != nil || got != "" {
+		t.Fatalf("unexpected default: %q err=%v", got, err)
+	}
+
+	if err := s.SetDefaultAccount("A@B.COM"); err != nil {
+		t.Fatalf("SetDefaultAccount: %v", err)
+	}
+	got, err := s.GetDefaultAccount()
+	if err != nil {
+		t.Fatalf("GetDefaultAccount: %v", err)
+	}
+	if got != "a@b.com" {
+		t.Fatalf("unexpected default: %q", got)
+	}
+}
