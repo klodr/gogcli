@@ -100,7 +100,7 @@ func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
 
 	stdout := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			if err := Execute([]string{"--output", "json", "auth", "tokens", "export", "a@b.com", outPath}); err != nil {
+			if err := Execute([]string{"--output", "json", "auth", "tokens", "export", "a@b.com", "--out", outPath}); err != nil {
 				t.Fatalf("Execute export: %v", err)
 			}
 		})

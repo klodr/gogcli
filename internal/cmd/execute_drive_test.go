@@ -123,7 +123,7 @@ func TestExecute_DriveDownload_JSON(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "out.bin")
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			if err := Execute([]string{"--output", "json", "--account", "a@b.com", "drive", "download", "id1", dest}); err != nil {
+			if err := Execute([]string{"--output", "json", "--account", "a@b.com", "drive", "download", "id1", "--out", dest}); err != nil {
 				t.Fatalf("Execute: %v", err)
 			}
 		})
@@ -188,7 +188,7 @@ func TestDriveDownloadCmd_FileHasNoName(t *testing.T) {
 
 	cmd := newDriveDownloadCmd(flags)
 	cmd.SetContext(ctx)
-	cmd.SetArgs([]string{"id1", filepath.Join(t.TempDir(), "out.bin")})
+	cmd.SetArgs([]string{"id1", "--out", filepath.Join(t.TempDir(), "out.bin")})
 	if execErr := cmd.Execute(); execErr == nil || !strings.Contains(execErr.Error(), "file has no name") {
 		t.Fatalf("expected file has no name error, got: %v", execErr)
 	}

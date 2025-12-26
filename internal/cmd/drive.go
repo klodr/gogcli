@@ -248,10 +248,12 @@ func newDriveGetCmd(flags *rootFlags) *cobra.Command {
 }
 
 func newDriveDownloadCmd(flags *rootFlags) *cobra.Command {
-	return &cobra.Command{
-		Use:   "download <fileId> [destPath]",
+	var outPathFlag string
+
+	cmd := &cobra.Command{
+		Use:   "download <fileId>",
 		Short: "Download a file (Google Docs exported)",
-		Args:  cobra.RangeArgs(1, 2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := ui.FromContext(cmd.Context())
 			account, err := requireAccount(flags)
@@ -260,10 +262,6 @@ func newDriveDownloadCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			fileID := args[0]
-			destPath := ""
-			if len(args) == 2 {
-				destPath = args[1]
-			}
 
 			svc, err := newDriveService(cmd.Context(), account)
 			if err != nil {
@@ -281,31 +279,37 @@ func newDriveDownloadCmd(flags *rootFlags) *cobra.Command {
 				return errors.New("file has no name")
 			}
 
+			destPath := strings.TrimSpace(outPathFlag)
 			if destPath == "" {
 				dir, dirErr := config.EnsureDriveDownloadsDir()
 				if dirErr != nil {
 					return dirErr
 				}
 				destPath = filepath.Join(dir, fmt.Sprintf("%s_%s", fileID, meta.Name))
+			} else if st, statErr := os.Stat(destPath); statErr == nil && st.IsDir() {
+				destPath = filepath.Join(destPath, fmt.Sprintf("%s_%s", fileID, meta.Name))
 			}
 
-			outPath, size, err := downloadDriveFile(cmd.Context(), svc, meta, destPath)
+			downloadedPath, size, err := downloadDriveFile(cmd.Context(), svc, meta, destPath)
 			if err != nil {
 				return err
 			}
 
 			if outfmt.IsJSON(cmd.Context()) {
 				return outfmt.WriteJSON(os.Stdout, map[string]any{
-					"path": outPath,
+					"path": downloadedPath,
 					"size": size,
 				})
 			}
 
-			u.Out().Printf("path\t%s", outPath)
+			u.Out().Printf("path\t%s", downloadedPath)
 			u.Out().Printf("size\t%s", formatDriveSize(size))
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&outPathFlag, "out", "", "Output file path (default: gogcli config dir)")
+	return cmd
 }
 
 func newDriveUploadCmd(flags *rootFlags) *cobra.Command {

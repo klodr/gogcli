@@ -16,7 +16,7 @@ import (
 
 func newGmailAttachmentCmd(flags *rootFlags) *cobra.Command {
 	var outPath string
-	var filename string
+	var name string
 
 	cmd := &cobra.Command{
 		Use:   "attachment <messageId> <attachmentId>",
@@ -39,7 +39,7 @@ func newGmailAttachmentCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			info, err := findAttachmentInfo(cmd, svc, messageID, attachmentID, filename)
+			info, err := findAttachmentInfo(cmd, svc, messageID, attachmentID, name)
 			if err != nil {
 				return err
 			}
@@ -80,7 +80,7 @@ func newGmailAttachmentCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&outPath, "out", "", "Write to a specific path (default: gogcli config dir)")
-	cmd.Flags().StringVar(&filename, "filename", "", "Override inferred filename (only used when --out is empty)")
+	cmd.Flags().StringVar(&name, "name", "", "Override inferred filename (only used when --out is empty)")
 	return cmd
 }
 

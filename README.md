@@ -87,7 +87,7 @@ Drive:
 - `gog drive ls --max 20`
 - `gog drive search "invoice" --max 20`
 - `gog drive get <fileId>`
-- `gog drive download <fileId>`
+- `gog drive download <fileId> [--out PATH]`
 - `gog drive upload ./path/to/file --folder <folderId>`
 
 Calendar:

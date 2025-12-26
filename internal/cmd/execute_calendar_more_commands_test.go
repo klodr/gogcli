@@ -109,7 +109,7 @@ func TestExecute_CalendarMoreCommands_JSON(t *testing.T) {
 			}
 		})
 		_ = captureStdout(t, func() {
-			if err := Execute([]string{"--output", "json", "--account", "a@b.com", "calendar", "create", calendarID, "--summary", "S", "--start", "2025-12-17T10:00:00Z", "--end", "2025-12-17T11:00:00Z"}); err != nil {
+			if err := Execute([]string{"--output", "json", "--account", "a@b.com", "calendar", "create", calendarID, "--summary", "S", "--from", "2025-12-17T10:00:00Z", "--to", "2025-12-17T11:00:00Z"}); err != nil {
 				t.Fatalf("create: %v", err)
 			}
 		})

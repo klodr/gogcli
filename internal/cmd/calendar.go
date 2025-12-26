@@ -289,8 +289,8 @@ func newCalendarEventCmd(flags *rootFlags) *cobra.Command {
 
 func newCalendarCreateCmd(flags *rootFlags) *cobra.Command {
 	var summary string
-	var start string
-	var end string
+	var from string
+	var to string
 	var description string
 	var location string
 	var attendees string
@@ -308,8 +308,8 @@ func newCalendarCreateCmd(flags *rootFlags) *cobra.Command {
 			}
 			calendarID := args[0]
 
-			if strings.TrimSpace(summary) == "" || strings.TrimSpace(start) == "" || strings.TrimSpace(end) == "" {
-				return errors.New("required: --summary, --start, --end")
+			if strings.TrimSpace(summary) == "" || strings.TrimSpace(from) == "" || strings.TrimSpace(to) == "" {
+				return errors.New("required: --summary, --from, --to")
 			}
 
 			svc, err := newCalendarService(cmd.Context(), account)
@@ -321,8 +321,8 @@ func newCalendarCreateCmd(flags *rootFlags) *cobra.Command {
 				Summary:     summary,
 				Description: description,
 				Location:    location,
-				Start:       buildEventDateTime(start, allDay),
-				End:         buildEventDateTime(end, allDay),
+				Start:       buildEventDateTime(from, allDay),
+				End:         buildEventDateTime(to, allDay),
 				Attendees:   buildAttendees(attendees),
 			}
 
@@ -342,19 +342,19 @@ func newCalendarCreateCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&summary, "summary", "", "Event title (required)")
-	cmd.Flags().StringVar(&start, "start", "", "Start time/date (required)")
-	cmd.Flags().StringVar(&end, "end", "", "End time/date (required)")
+	cmd.Flags().StringVar(&from, "from", "", "Start time/date (required)")
+	cmd.Flags().StringVar(&to, "to", "", "End time/date (required)")
 	cmd.Flags().StringVar(&description, "description", "", "Event description")
 	cmd.Flags().StringVar(&location, "location", "", "Event location")
 	cmd.Flags().StringVar(&attendees, "attendees", "", "Attendees (comma-separated)")
-	cmd.Flags().BoolVar(&allDay, "all-day", false, "Create all-day event (use YYYY-MM-DD for start/end)")
+	cmd.Flags().BoolVar(&allDay, "all-day", false, "Create all-day event (use YYYY-MM-DD for from/to)")
 	return cmd
 }
 
 func newCalendarUpdateCmd(flags *rootFlags) *cobra.Command {
 	var summary string
-	var start string
-	var end string
+	var from string
+	var to string
 	var description string
 	var location string
 	var attendees string
@@ -387,8 +387,8 @@ func newCalendarUpdateCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("all-day") {
 				targetAllDay = allDay
 				// Converting between all-day and timed needs explicit start/end.
-				if !cmd.Flags().Changed("start") || !cmd.Flags().Changed("end") {
-					return errors.New("when changing --all-day, also provide --start and --end")
+				if !cmd.Flags().Changed("from") || !cmd.Flags().Changed("to") {
+					return errors.New("when changing --all-day, also provide --from and --to")
 				}
 			}
 
@@ -407,12 +407,12 @@ func newCalendarUpdateCmd(flags *rootFlags) *cobra.Command {
 				changed = true
 			}
 
-			if cmd.Flags().Changed("start") {
-				existing.Start = buildEventDateTime(start, targetAllDay)
+			if cmd.Flags().Changed("from") {
+				existing.Start = buildEventDateTime(from, targetAllDay)
 				changed = true
 			}
-			if cmd.Flags().Changed("end") {
-				existing.End = buildEventDateTime(end, targetAllDay)
+			if cmd.Flags().Changed("to") {
+				existing.End = buildEventDateTime(to, targetAllDay)
 				changed = true
 			}
 
@@ -441,12 +441,12 @@ func newCalendarUpdateCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&summary, "summary", "", "Event title")
-	cmd.Flags().StringVar(&start, "start", "", "Start time/date (RFC3339 or YYYY-MM-DD)")
-	cmd.Flags().StringVar(&end, "end", "", "End time/date (RFC3339 or YYYY-MM-DD)")
+	cmd.Flags().StringVar(&from, "from", "", "Start time/date (RFC3339 or YYYY-MM-DD)")
+	cmd.Flags().StringVar(&to, "to", "", "End time/date (RFC3339 or YYYY-MM-DD)")
 	cmd.Flags().StringVar(&description, "description", "", "Event description")
 	cmd.Flags().StringVar(&location, "location", "", "Event location")
 	cmd.Flags().StringVar(&attendees, "attendees", "", "Attendees (comma-separated)")
-	cmd.Flags().BoolVar(&allDay, "all-day", false, "Treat start/end as all-day (YYYY-MM-DD)")
+	cmd.Flags().BoolVar(&allDay, "all-day", false, "Treat from/to as all-day (YYYY-MM-DD)")
 	return cmd
 }
 

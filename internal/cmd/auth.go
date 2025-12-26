@@ -141,20 +141,21 @@ func newAuthTokensCmd() *cobra.Command {
 }
 
 func newAuthTokensExportCmd() *cobra.Command {
+	var outPath string
 	var force bool
 
 	cmd := &cobra.Command{
-		Use:   "export <email> <outPath>",
+		Use:   "export <email>",
 		Short: "Export a refresh token to a file (contains secrets)",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := ui.FromContext(cmd.Context())
 			email := strings.TrimSpace(args[0])
-			outPath := args[1]
 			if email == "" {
 				return errors.New("empty email")
 			}
-			if strings.TrimSpace(outPath) == "" {
+			outPath = strings.TrimSpace(outPath)
+			if outPath == "" {
 				return errors.New("empty outPath")
 			}
 
@@ -221,6 +222,7 @@ func newAuthTokensExportCmd() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&outPath, "out", "", "Output file path (required)")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite output file if it exists")
 	return cmd
 }

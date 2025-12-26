@@ -19,8 +19,8 @@ func newGmailSendCmd(flags *rootFlags) *cobra.Command {
 	var subject string
 	var body string
 	var bodyHTML string
+	var replyToMessageID string
 	var replyTo string
-	var replyToAddress string
 	var attach []string
 
 	cmd := &cobra.Command{
@@ -45,7 +45,7 @@ func newGmailSendCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			inReplyTo, references, threadID, err := replyHeaders(cmd, svc, replyTo)
+			inReplyTo, references, threadID, err := replyHeaders(cmd, svc, replyToMessageID)
 			if err != nil {
 				return err
 			}
@@ -60,7 +60,7 @@ func newGmailSendCmd(flags *rootFlags) *cobra.Command {
 				To:          splitCSV(to),
 				Cc:          splitCSV(cc),
 				Bcc:         splitCSV(bcc),
-				ReplyTo:     replyToAddress,
+				ReplyTo:     replyTo,
 				Subject:     subject,
 				Body:        body,
 				BodyHTML:    bodyHTML,
@@ -103,8 +103,8 @@ func newGmailSendCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&subject, "subject", "", "Subject (required)")
 	cmd.Flags().StringVar(&body, "body", "", "Body (plain text; required unless --body-html is set)")
 	cmd.Flags().StringVar(&bodyHTML, "body-html", "", "Body (HTML; optional)")
-	cmd.Flags().StringVar(&replyTo, "reply-to", "", "Reply to message ID (sets In-Reply-To/References and thread)")
-	cmd.Flags().StringVar(&replyToAddress, "reply-to-address", "", "Reply-To header address")
+	cmd.Flags().StringVar(&replyToMessageID, "reply-to-message-id", "", "Reply to Gmail message ID (sets In-Reply-To/References and thread)")
+	cmd.Flags().StringVar(&replyTo, "reply-to", "", "Reply-To header address")
 	cmd.Flags().StringSliceVar(&attach, "attach", nil, "Attachment file path (repeatable)")
 	return cmd
 }

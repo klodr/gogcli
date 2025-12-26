@@ -130,7 +130,7 @@ Environment:
 - `gog drive ls [folderId] [--max N] [--page TOKEN] [--query Q]`
 - `gog drive search <text> [--max N] [--page TOKEN]`
 - `gog drive get <fileId>`
-- `gog drive download <fileId> [destPath]`
+- `gog drive download <fileId> [--out PATH]`
 - `gog drive upload <localPath> [--name N] [--folder ID]`
 - `gog drive mkdir <name> [--parent ID]`
 - `gog drive delete <fileId>`
@@ -144,22 +144,22 @@ Environment:
 - `gog calendar acl <calendarId>`
 - `gog calendar events <calendarId> [--from RFC3339] [--to RFC3339] [--max N] [--page TOKEN] [--query Q]`
 - `gog calendar event <calendarId> <eventId>`
-- `gog calendar create <calendarId> --summary S --start DT --end DT [--description D] [--location L] [--attendees a@b.com,c@d.com] [--all-day]`
-- `gog calendar update <calendarId> <eventId> [--summary S] [--start DT] [--end DT] [--description D] [--location L] [--attendees ...] [--all-day]`
+- `gog calendar create <calendarId> --summary S --from DT --to DT [--description D] [--location L] [--attendees a@b.com,c@d.com] [--all-day]`
+- `gog calendar update <calendarId> <eventId> [--summary S] [--from DT] [--to DT] [--description D] [--location L] [--attendees ...] [--all-day]`
 - `gog calendar delete <calendarId> <eventId>`
 - `gog calendar freebusy <calendarIds> --from RFC3339 --to RFC3339`
 - `gog calendar respond <calendarId> <eventId> --status accepted|declined|tentative [--send-updates all|none|externalOnly]`
 - `gog gmail search <query> [--max N] [--page TOKEN]`
 - `gog gmail thread <threadId> [--download]`
 - `gog gmail get <messageId> [--format full|metadata|raw] [--headers ...]`
-- `gog gmail attachment <messageId> <attachmentId> [--out PATH] [--filename NAME]`
+- `gog gmail attachment <messageId> <attachmentId> [--out PATH] [--name NAME]`
 - `gog gmail url <threadIds...>`
 - `gog gmail labels list`
 - `gog gmail labels modify <threadIds...> [--add ...] [--remove ...]`
-- `gog gmail send --to a@b.com --subject S [--body B] [--body-html H] [--cc ...] [--bcc ...] [--reply-to <messageId>] [--reply-to-address addr] [--attach <file>...]`
+- `gog gmail send --to a@b.com --subject S [--body B] [--body-html H] [--cc ...] [--bcc ...] [--reply-to-message-id <messageId>] [--reply-to addr] [--attach <file>...]`
 - `gog gmail drafts list [--max N] [--page TOKEN]`
 - `gog gmail drafts get <draftId> [--download]`
-- `gog gmail drafts create --to a@b.com --subject S [--body B] [--body-html H] [--cc ...] [--bcc ...] [--reply-to <messageId>] [--reply-to-address addr] [--attach <file>...]`
+- `gog gmail drafts create --to a@b.com --subject S [--body B] [--body-html H] [--cc ...] [--bcc ...] [--reply-to-message-id <messageId>] [--reply-to addr] [--attach <file>...]`
 - `gog gmail drafts send <draftId>`
 - `gog gmail drafts delete <draftId>`
 - `gog gmail watch start|status|renew|stop|serve`

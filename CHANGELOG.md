@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.2 - Unreleased
+## 0.3.0 - Unreleased
 
 ### Added
 
@@ -9,6 +9,12 @@
 ### Changed
 
 - macOS: always trust the `gog` binary in Keychain (removed `GOG_KEYCHAIN_TRUST_APPLICATION`).
+- BREAKING: remove positional/legacy flags; normalize paging and file output flags.
+- BREAKING: `gog calendar create|update` uses `--from/--to` (removed `--start/--end`).
+- BREAKING: `gog gmail send|drafts create` uses `--reply-to-message-id` (removed `--reply-to` for message IDs) and `--reply-to` (removed `--reply-to-address`).
+- BREAKING: `gog gmail attachment` uses `--name` (removed `--filename`).
+- BREAKING: `gog drive download` uses `--out` (removed positional `destPath`).
+- BREAKING: `gog auth tokens export` uses `--out` (removed positional `outPath`).
 
 ## 0.2.1 - 2025-12-26
 
