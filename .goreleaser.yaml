@@ -12,7 +12,6 @@ builds:
     env:
       - CGO_ENABLED=0
     goos:
-      - darwin
       - linux
       - windows
     goarch:
@@ -21,10 +20,21 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+  - id: gog_darwin
+    main: ./cmd/gog
+    binary: gog
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
 
 archives:
   - builds:
       - gog
+      - gog_darwin
     format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:

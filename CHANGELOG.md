@@ -2,11 +2,7 @@
 
 ## 0.4.1 - Unreleased
 
-### Added
-
-### Fixed
-
-### Changed
+- macOS: release binaries now built with cgo so Keychain backend works (no encrypted file-store fallback / password prompts; Issue #19).
 
 ## 0.4.0 - 2025-12-26
 
