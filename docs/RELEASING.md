@@ -6,7 +6,7 @@ summary: "Release checklist for gogcli (GitHub release + Homebrew tap)"
 
 This playbook mirrors the Homebrew + GitHub flow used in `../camsnap`.
 
-When Peter says “release fully” / “release including Homebrew”: do **all** steps below (CI + tag + GitHub release + tap update + Homebrew sanity install).
+Always do **all** steps below (CI + changelog + tag + GitHub release artifacts + tap update + Homebrew sanity install). No partial releases.
 
 Assumptions:
 - Repo: `steipete/gogcli`
@@ -24,18 +24,18 @@ Assumptions:
 make ci
 ```
 
-Optional: confirm GitHub Actions is green for the commit you’re tagging:
+Confirm GitHub Actions `ci` is green for the commit you’re tagging:
 ```sh
 gh run list -L 5 --branch main
 ```
 
 ## 2) Update changelog
-- Add a new section to `CHANGELOG.md` for the version you’re releasing.
+- Update `CHANGELOG.md` for the version you’re releasing.
 
 Example heading:
 - `## 0.1.0 - 2025-12-12`
 
-## 3) Tag & push
+## 3) Commit, tag & push
 ```sh
 git checkout main
 git pull
@@ -47,7 +47,20 @@ git tag -a vX.Y.Z -m "Release X.Y.Z"
 git push origin main --tags
 ```
 
-## 4) Update (or add) the Homebrew formula
+## 4) Verify GitHub release artifacts
+The tag push triggers `.github/workflows/release.yml` (GoReleaser). Ensure it completes successfully and the release has assets.
+
+```sh
+gh run list -L 5 --workflow release.yml
+gh release view vX.Y.Z
+```
+
+If the workflow needs a rerun:
+```sh
+gh workflow run release.yml -f tag=vX.Y.Z
+```
+
+## 5) Update (or add) the Homebrew formula
 In the tap repo (assumed sibling at `../homebrew-tap`), create/update `Formula/gogcli.rb`.
 
 Recommended formula shape (build-from-source, no binary assets needed):
@@ -72,7 +85,7 @@ git commit -m "gogcli vX.Y.Z"
 git push origin main
 ```
 
-## 5) Sanity-check install from tap
+## 6) Sanity-check install from tap
 ```sh
 brew update
 brew uninstall gogcli || true
@@ -82,16 +95,6 @@ brew install steipete/tap/gogcli
 brew test steipete/tap/gogcli
 
 gog --help
-```
-
-## 6) Create GitHub Release
-- Create a GitHub Release for tag `vX.Y.Z`.
-- Title: `gogcli X.Y.Z` (or `gog X.Y.Z` if you prefer the binary name).
-- Body: copy the bullets from `CHANGELOG.md` for that version.
-
-Tip (CLI):
-```sh
-gh release create vX.Y.Z --title "gogcli X.Y.Z" --notes-file /tmp/gogcli-release.md
 ```
 
 ## Notes
