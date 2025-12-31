@@ -32,9 +32,9 @@ fi
 
 notes_file="$(mktemp "/tmp/gogcli-release-notes.XXXXXX.md")"
 awk -v ver="$version" '
-  $0 ~ "^## "ver" " {print "## "ver; in=1; next}
-  in && /^## / {exit}
-  in {print}
+  $0 ~ "^## "ver" " {print "## "ver; in_section=1; next}
+  in_section && /^## / {exit}
+  in_section {print}
 ' "$changelog" | sed '/^$/d' > "$notes_file"
 
 if [[ ! -s "$notes_file" ]]; then
