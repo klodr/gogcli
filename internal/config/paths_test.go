@@ -9,6 +9,7 @@ import (
 func TestPaths_CreateDirs(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
 	dir, err := EnsureDir()
 	if err != nil {

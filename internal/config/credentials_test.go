@@ -47,6 +47,7 @@ func TestParseGoogleOAuthClientJSON(t *testing.T) {
 func TestClientCredentials_Roundtrip(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
 	in := ClientCredentials{ClientID: "id", ClientSecret: "secret"}
 	if err := WriteClientCredentials(in); err != nil {
@@ -79,6 +80,7 @@ func TestClientCredentials_Roundtrip(t *testing.T) {
 func TestReadClientCredentials_Errors(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
 	_, err := ReadClientCredentials()
 	if err == nil {
