@@ -121,6 +121,7 @@ Environment:
 
 - `GOG_ACCOUNT=you@gmail.com` (used when `--account` is not set)
 - `GOG_KEYRING_PASSWORD=...` (used when keyring falls back to encrypted file backend in non-interactive environments)
+- `GOG_KEYRING_BACKEND={auto|keychain|file}` (force backend; use `file` to avoid Keychain prompts and pair with `GOG_KEYRING_PASSWORD` for non-interactive)
 
 ## Commands (current + planned)
 

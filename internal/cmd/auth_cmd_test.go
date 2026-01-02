@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -173,10 +174,21 @@ func TestAuthTokensExport_RequiresOut(t *testing.T) {
 
 func TestAuthListRemoveTokensListDelete_JSON(t *testing.T) {
 	origOpen := openSecretsStore
-	t.Cleanup(func() { openSecretsStore = origOpen })
+	origCheck := checkRefreshToken
+	t.Cleanup(func() {
+		openSecretsStore = origOpen
+		checkRefreshToken = origCheck
+	})
 
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
+
+	checkRefreshToken = func(_ context.Context, refreshToken string, _ []string, _ time.Duration) error {
+		if refreshToken == "rt2" {
+			return errors.New("invalid_grant")
+		}
+		return nil
+	}
 
 	_ = store.SetToken("b@b.com", secrets.Token{RefreshToken: "rt2"})
 	_ = store.SetToken("a@b.com", secrets.Token{RefreshToken: "rt1"})
@@ -198,6 +210,33 @@ func TestAuthListRemoveTokensListDelete_JSON(t *testing.T) {
 	}
 	if len(listResp.Accounts) != 2 || listResp.Accounts[0].Email != "a@b.com" || listResp.Accounts[1].Email != "b@b.com" {
 		t.Fatalf("unexpected accounts: %#v", listResp.Accounts)
+	}
+
+	listOut = captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"--json", "auth", "list", "--check"}); err != nil {
+				t.Fatalf("Execute list --check: %v", err)
+			}
+		})
+	})
+	var listCheckedResp struct {
+		Accounts []struct {
+			Email string `json:"email"`
+			Valid *bool  `json:"valid,omitempty"`
+			Error string `json:"error,omitempty"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal([]byte(listOut), &listCheckedResp); err != nil {
+		t.Fatalf("list --check json: %v\nout=%q", err, listOut)
+	}
+	if len(listCheckedResp.Accounts) != 2 {
+		t.Fatalf("unexpected accounts: %#v", listCheckedResp.Accounts)
+	}
+	if listCheckedResp.Accounts[0].Email != "a@b.com" || listCheckedResp.Accounts[0].Valid == nil || !*listCheckedResp.Accounts[0].Valid {
+		t.Fatalf("expected a@b.com valid, got: %#v", listCheckedResp.Accounts[0])
+	}
+	if listCheckedResp.Accounts[1].Email != "b@b.com" || listCheckedResp.Accounts[1].Valid == nil || *listCheckedResp.Accounts[1].Valid || !strings.Contains(listCheckedResp.Accounts[1].Error, "invalid_grant") {
+		t.Fatalf("expected b@b.com invalid_grant, got: %#v", listCheckedResp.Accounts[1])
 	}
 
 	// Tokens list (keys).

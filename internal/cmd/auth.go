@@ -22,6 +22,7 @@ var (
 	openSecretsStore  = secrets.OpenDefault
 	authorizeGoogle   = googleauth.Authorize
 	startManageServer = googleauth.StartManageServer
+	checkRefreshToken = googleauth.CheckRefreshToken
 )
 
 type AuthCmd struct {
@@ -366,7 +367,10 @@ func (c *AuthAddCmd) Run(ctx context.Context) error {
 	return nil
 }
 
-type AuthListCmd struct{}
+type AuthListCmd struct {
+	Check   bool          `name:"check" help:"Verify refresh tokens by exchanging for an access token (requires credentials.json)"`
+	Timeout time.Duration `name:"timeout" help:"Per-token check timeout" default:"15s"`
+}
 
 func (c *AuthListCmd) Run(ctx context.Context) error {
 	u := ui.FromContext(ctx)
@@ -385,6 +389,8 @@ func (c *AuthListCmd) Run(ctx context.Context) error {
 			Services  []string `json:"services,omitempty"`
 			Scopes    []string `json:"scopes,omitempty"`
 			CreatedAt string   `json:"created_at,omitempty"`
+			Valid     *bool    `json:"valid,omitempty"`
+			Error     string   `json:"error,omitempty"`
 		}
 		out := make([]item, 0, len(tokens))
 		for _, t := range tokens {
@@ -392,12 +398,21 @@ func (c *AuthListCmd) Run(ctx context.Context) error {
 			if !t.CreatedAt.IsZero() {
 				created = t.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00")
 			}
-			out = append(out, item{
+			it := item{
 				Email:     t.Email,
 				Services:  t.Services,
 				Scopes:    t.Scopes,
 				CreatedAt: created,
-			})
+			}
+			if c.Check {
+				err := checkRefreshToken(ctx, t.RefreshToken, t.Scopes, c.Timeout)
+				valid := err == nil
+				it.Valid = &valid
+				if err != nil {
+					it.Error = err.Error()
+				}
+			}
+			out = append(out, it)
 		}
 		return outfmt.WriteJSON(os.Stdout, map[string]any{"accounts": out})
 	}
@@ -409,6 +424,16 @@ func (c *AuthListCmd) Run(ctx context.Context) error {
 		created := ""
 		if !t.CreatedAt.IsZero() {
 			created = t.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00")
+		}
+		if c.Check {
+			err := checkRefreshToken(ctx, t.RefreshToken, t.Scopes, c.Timeout)
+			valid := err == nil
+			msg := ""
+			if err != nil {
+				msg = err.Error()
+			}
+			u.Out().Printf("%s\t%s\t%s\t%t\t%s", t.Email, strings.Join(t.Services, ","), created, valid, msg)
+			continue
 		}
 		u.Out().Printf("%s\t%s\t%s", t.Email, strings.Join(t.Services, ","), created)
 	}

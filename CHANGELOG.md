@@ -2,6 +2,9 @@
 
 ## 0.4.3 - Unreleased
 
+- Auth: `gog auth list --check` validates refresh tokens by exchanging for an access token.
+- Secrets: add `GOG_KEYRING_BACKEND={auto|keychain|file}` to force backend (use `file` to avoid Keychain prompts; pair with `GOG_KEYRING_PASSWORD`).
+
 ## 0.4.2 - 2025-12-31
 
 - Gmail: `thread modify` subcommand + `thread get` split (#21) — thanks @alexknowshtml.

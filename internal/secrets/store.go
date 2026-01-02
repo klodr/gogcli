@@ -38,12 +38,26 @@ type Token struct {
 }
 
 const keyringPasswordEnv = "GOG_KEYRING_PASSWORD" //nolint:gosec // env var name, not a credential
+const keyringBackendEnv = "GOG_KEYRING_BACKEND"   //nolint:gosec // env var name, not a credential
 
 var (
 	errMissingEmail        = errors.New("missing email")
 	errMissingRefreshToken = errors.New("missing refresh token")
 	errNoTTY               = errors.New("no TTY available for keyring file backend password prompt")
 )
+
+func allowedBackendsFromEnv() ([]keyring.BackendType, error) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(keyringBackendEnv))) {
+	case "", "auto":
+		return nil, nil
+	case "keychain":
+		return []keyring.BackendType{keyring.KeychainBackend}, nil
+	case "file":
+		return []keyring.BackendType{keyring.FileBackend}, nil
+	default:
+		return nil, fmt.Errorf("invalid %s (expected auto, keychain, or file)", keyringBackendEnv)
+	}
+}
 
 func fileKeyringPasswordFuncFrom(password string, isTTY bool) keyring.PromptFunc {
 	if password != "" {
@@ -72,9 +86,15 @@ func OpenDefault() (Store, error) {
 		return nil, fmt.Errorf("ensure keyring dir: %w", err)
 	}
 
+	allowedBackends, err := allowedBackendsFromEnv()
+	if err != nil {
+		return nil, err
+	}
+
 	ring, err := keyring.Open(keyring.Config{
 		ServiceName:              config.AppName,
 		KeychainTrustApplication: runtime.GOOS == "darwin",
+		AllowedBackends:          allowedBackends,
 		FileDir:                  keyringDir,
 		FilePasswordFunc:         fileKeyringPasswordFunc(),
 	})

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,6 +103,42 @@ func TestAuthListAndTokens_NoTokens_Text(t *testing.T) {
 	})
 	if !strings.Contains(errOut, "No tokens stored") {
 		t.Fatalf("unexpected stderr: %q", errOut)
+	}
+}
+
+func TestAuthList_Check_Text(t *testing.T) {
+	origOpen := openSecretsStore
+	origCheck := checkRefreshToken
+	t.Cleanup(func() {
+		openSecretsStore = origOpen
+		checkRefreshToken = origCheck
+	})
+
+	store := newMemSecretsStore()
+	openSecretsStore = func() (secrets.Store, error) { return store, nil }
+
+	checkRefreshToken = func(_ context.Context, refreshToken string, _ []string, _ time.Duration) error {
+		if refreshToken == "bad" {
+			return errors.New("invalid_grant")
+		}
+		return nil
+	}
+
+	_ = store.SetToken("a@b.com", secrets.Token{RefreshToken: "good"})
+	_ = store.SetToken("b@b.com", secrets.Token{RefreshToken: "bad"})
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"auth", "list", "--check"}); err != nil {
+				t.Fatalf("list --check: %v", err)
+			}
+		})
+	})
+	if !strings.Contains(out, "a@b.com") || !strings.Contains(out, "\ttrue\t") {
+		t.Fatalf("expected a@b.com valid in output: %q", out)
+	}
+	if !strings.Contains(out, "b@b.com") || !strings.Contains(out, "\tfalse\t") || !strings.Contains(out, "invalid_grant") {
+		t.Fatalf("expected b@b.com invalid in output: %q", out)
 	}
 }
 
