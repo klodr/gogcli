@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/steipete/gogcli/internal/googleapi"
+	"github.com/steipete/gogcli/internal/googleauth"
+	"github.com/steipete/gogcli/internal/secrets"
 )
 
 func TestDriveSmoke(t *testing.T) {
@@ -71,6 +73,29 @@ func TestGmailSmoke(t *testing.T) {
 	_, err = svc.Users.Labels.List("me").Do()
 	if err != nil {
 		t.Fatalf("Gmail labels: %v", err)
+	}
+}
+
+func TestAuthRefreshTokenSmoke(t *testing.T) {
+	account := os.Getenv("GOG_IT_ACCOUNT")
+	if account == "" {
+		t.Skip("set GOG_IT_ACCOUNT")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	store, err := secrets.OpenDefault()
+	if err != nil {
+		t.Fatalf("OpenDefault: %v", err)
+	}
+	tok, err := store.GetToken(account)
+	if err != nil {
+		t.Fatalf("GetToken: %v", err)
+	}
+
+	if err := googleauth.CheckRefreshToken(ctx, tok.RefreshToken, tok.Scopes, 15*time.Second); err != nil {
+		t.Fatalf("CheckRefreshToken: %v", err)
 	}
 }
 

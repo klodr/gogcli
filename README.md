@@ -672,6 +672,17 @@ Pinned tools (installed into `.tools/`):
 
 CI runs format checks, tests, and lint on push/PR.
 
+### Integration Tests (Live Google APIs)
+
+Opt-in tests that hit real Google APIs using your stored `gog` credentials/tokens.
+
+```bash
+export GOG_IT_ACCOUNT=you@gmail.com
+go test -tags=integration ./...
+```
+
+Tip: if you want to avoid macOS Keychain prompts during these runs, set `GOG_KEYRING_BACKEND=file` and `GOG_KEYRING_PASSWORD=...` (uses encrypted on-disk keyring).
+
 ### pnpm Shortcut
 
 Build and run in one step:
