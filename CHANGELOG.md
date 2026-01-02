@@ -7,6 +7,7 @@
 - Homebrew: tap now installs GitHub release binaries (macOS) to reduce Keychain prompt churn.
 - Secrets: add `GOG_KEYRING_BACKEND={auto|keychain|file}` to force backend (use `file` to avoid Keychain prompts; pair with `GOG_KEYRING_PASSWORD`).
 - Docs: explain macOS Keychain prompts and backend options.
+- DX: remove pnpm wrapper; use `make gog`.
 
 ## 0.4.2 - 2025-12-31
 
