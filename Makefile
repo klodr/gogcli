@@ -24,7 +24,11 @@ build:
 	@go build -ldflags "$(LDFLAGS)" -o $(BIN) $(CMD)
 
 gog: build
-	@$(BIN) $(ARGS)
+	@mkdir -p $(BIN_DIR)
+	@tmp_cache=$$(mktemp -d -t gogcli-gocache.XXXXXX); \
+	trap 'rm -rf "$$tmp_cache"' EXIT; \
+	GOCACHE="$$tmp_cache" go build -ldflags "$(LDFLAGS)" -o $(BIN) $(CMD); \
+	$(BIN) $(ARGS)
 
 tools:
 	@mkdir -p $(TOOLS_DIR)
