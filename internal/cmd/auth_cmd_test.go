@@ -97,7 +97,7 @@ func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
 		ensureKeychainAccess = origKeychain
 	})
 
-	ensureKeychainAccess = func(bool) error { return nil }
+	ensureKeychainAccess = func() error { return nil }
 	store := newMemSecretsStore()
 	createdAt := time.Date(2025, 12, 12, 0, 0, 0, 0, time.UTC)
 	if err := store.SetToken("A@B.COM", secrets.Token{
@@ -181,9 +181,7 @@ func TestAuthTokensImport_NoInput(t *testing.T) {
 	origKeychain := ensureKeychainAccess
 	t.Cleanup(func() { ensureKeychainAccess = origKeychain })
 
-	gotNoInput := false
-	ensureKeychainAccess = func(noInput bool) error {
-		gotNoInput = noInput
+	ensureKeychainAccess = func() error {
 		return errors.New("keychain locked")
 	}
 
@@ -195,9 +193,6 @@ func TestAuthTokensImport_NoInput(t *testing.T) {
 	err := Execute([]string{"--json", "--no-input", "auth", "tokens", "import", outPath})
 	if err == nil {
 		t.Fatalf("expected error")
-	}
-	if !gotNoInput {
-		t.Fatalf("expected no-input forwarded to keychain access")
 	}
 	if !strings.Contains(err.Error(), "keychain access") {
 		t.Fatalf("unexpected error: %v", err)
