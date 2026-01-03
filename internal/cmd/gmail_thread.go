@@ -142,10 +142,13 @@ func (c *GmailThreadGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 		u.Out().Printf("Date: %s", headerValue(msg.Payload, "Date"))
 		u.Out().Println("")
 
-		body := bestBodyText(msg.Payload)
+		body, isHTML := bestBodyForDisplay(msg.Payload)
 		if body != "" {
-			// Strip HTML tags for cleaner text output
-			cleanBody := stripHTMLTags(body)
+			cleanBody := body
+			if isHTML {
+				// Strip HTML tags for cleaner text output
+				cleanBody = stripHTMLTags(body)
+			}
 			// Limit body preview to avoid overwhelming output
 			// Use runes to avoid breaking multi-byte UTF-8 characters
 			runes := []rune(cleanBody)
@@ -305,6 +308,21 @@ func bestBodyText(p *gmail.MessagePart) string {
 	}
 	html := findPartBody(p, "text/html")
 	return html
+}
+
+func bestBodyForDisplay(p *gmail.MessagePart) (string, bool) {
+	if p == nil {
+		return "", false
+	}
+	plain := findPartBody(p, "text/plain")
+	if plain != "" {
+		return plain, false
+	}
+	html := findPartBody(p, "text/html")
+	if html == "" {
+		return "", false
+	}
+	return html, true
 }
 
 func findPartBody(p *gmail.MessagePart, mimeType string) string {

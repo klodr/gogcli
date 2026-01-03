@@ -129,3 +129,43 @@ func TestStripHTMLTags(t *testing.T) {
 		})
 	}
 }
+
+func TestBestBodyForDisplay(t *testing.T) {
+	p := &gmail.MessagePart{
+		MimeType: "multipart/alternative",
+		Parts: []*gmail.MessagePart{
+			{
+				MimeType: "text/plain",
+				Body: &gmail.MessagePartBody{
+					Data: encodeBase64URL("plain body"),
+				},
+			},
+			{
+				MimeType: "text/html",
+				Body: &gmail.MessagePartBody{
+					Data: encodeBase64URL("<p>html body</p>"),
+				},
+			},
+		},
+	}
+
+	body, isHTML := bestBodyForDisplay(p)
+	if body != "plain body" || isHTML {
+		t.Fatalf("expected plain body, got %q (html=%v)", body, isHTML)
+	}
+
+	htmlOnly := &gmail.MessagePart{
+		MimeType: "text/html",
+		Body: &gmail.MessagePartBody{
+			Data: encodeBase64URL("<p>html body</p>"),
+		},
+	}
+	body, isHTML = bestBodyForDisplay(htmlOnly)
+	if body == "" || !isHTML {
+		t.Fatalf("expected html body, got %q (html=%v)", body, isHTML)
+	}
+}
+
+func encodeBase64URL(value string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(value))
+}

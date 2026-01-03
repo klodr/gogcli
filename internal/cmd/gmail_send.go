@@ -21,8 +21,9 @@ type GmailSendCmd struct {
 	Subject          string   `name:"subject" help:"Subject (required)"`
 	Body             string   `name:"body" help:"Body (plain text; required unless --body-html is set)"`
 	BodyHTML         string   `name:"body-html" help:"Body (HTML; optional)"`
-	ReplyToMessageID string   `name:"reply-to-message-id" aliases:"thread-id,in-reply-to" help:"Reply to Gmail message ID (sets In-Reply-To/References and thread)"`
-	ReplyAll         bool     `name:"reply-all" help:"Auto-populate recipients from original message (requires --reply-to-message-id)"`
+	ReplyToMessageID string   `name:"reply-to-message-id" aliases:"in-reply-to" help:"Reply to Gmail message ID (sets In-Reply-To/References and thread)"`
+	ThreadID         string   `name:"thread-id" help:"Reply within a Gmail thread (uses latest message for headers)"`
+	ReplyAll         bool     `name:"reply-all" help:"Auto-populate recipients from original message (requires --reply-to-message-id or --thread-id)"`
 	ReplyTo          string   `name:"reply-to" help:"Reply-To header address"`
 	Attach           []string `name:"attach" help:"Attachment file path (repeatable)"`
 	From             string   `name:"from" help:"Send from this email address (must be a verified send-as alias)"`
@@ -35,14 +36,21 @@ func (c *GmailSendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 
-	// Validate --reply-all requires --reply-to-message-id
-	if c.ReplyAll && strings.TrimSpace(c.ReplyToMessageID) == "" {
-		return usage("--reply-all requires --reply-to-message-id")
+	replyToMessageID := strings.TrimSpace(c.ReplyToMessageID)
+	threadID := strings.TrimSpace(c.ThreadID)
+
+	if replyToMessageID != "" && threadID != "" {
+		return usage("use only one of --reply-to-message-id or --thread-id")
+	}
+
+	// Validate --reply-all requires a reply target
+	if c.ReplyAll && replyToMessageID == "" && threadID == "" {
+		return usage("--reply-all requires --reply-to-message-id or --thread-id")
 	}
 
 	// --to is required unless --reply-all is used
 	if strings.TrimSpace(c.To) == "" && !c.ReplyAll {
-		return usage("required: --to (or use --reply-all with --reply-to-message-id)")
+		return usage("required: --to (or use --reply-all with --reply-to-message-id or --thread-id)")
 	}
 	if strings.TrimSpace(c.Subject) == "" {
 		return usage("required: --subject")
@@ -78,7 +86,7 @@ func (c *GmailSendCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	// Fetch reply info (includes recipient headers for reply-all)
-	replyInfo, err := fetchReplyInfo(ctx, svc, c.ReplyToMessageID)
+	replyInfo, err := fetchReplyInfo(ctx, svc, replyToMessageID, threadID)
 	if err != nil {
 		return err
 	}
@@ -205,19 +213,33 @@ type replyInfo struct {
 }
 
 func replyHeaders(ctx context.Context, svc *gmail.Service, replyToMessageID string) (inReplyTo string, references string, threadID string, err error) {
-	info, err := fetchReplyInfo(ctx, svc, replyToMessageID)
+	info, err := fetchReplyInfo(ctx, svc, replyToMessageID, "")
 	if err != nil {
 		return "", "", "", err
 	}
 	return info.InReplyTo, info.References, info.ThreadID, nil
 }
 
-func fetchReplyInfo(ctx context.Context, svc *gmail.Service, replyToMessageID string) (*replyInfo, error) {
+func fetchReplyInfo(ctx context.Context, svc *gmail.Service, replyToMessageID string, threadID string) (*replyInfo, error) {
 	replyToMessageID = strings.TrimSpace(replyToMessageID)
-	if replyToMessageID == "" {
+	threadID = strings.TrimSpace(threadID)
+	if replyToMessageID == "" && threadID == "" {
 		return &replyInfo{}, nil
 	}
-	msg, err := svc.Users.Messages.Get("me", replyToMessageID).
+
+	if replyToMessageID != "" {
+		msg, err := svc.Users.Messages.Get("me", replyToMessageID).
+			Format("metadata").
+			MetadataHeaders("Message-ID", "Message-Id", "References", "In-Reply-To", "From", "Reply-To", "To", "Cc").
+			Context(ctx).
+			Do()
+		if err != nil {
+			return nil, err
+		}
+		return replyInfoFromMessage(msg), nil
+	}
+
+	thread, err := svc.Users.Threads.Get("me", threadID).
 		Format("metadata").
 		MetadataHeaders("Message-ID", "Message-Id", "References", "In-Reply-To", "From", "Reply-To", "To", "Cc").
 		Context(ctx).
@@ -225,7 +247,25 @@ func fetchReplyInfo(ctx context.Context, svc *gmail.Service, replyToMessageID st
 	if err != nil {
 		return nil, err
 	}
+	if thread == nil || len(thread.Messages) == 0 {
+		return nil, fmt.Errorf("thread %s has no messages", threadID)
+	}
 
+	msg := selectLatestThreadMessage(thread.Messages)
+	if msg == nil {
+		return nil, fmt.Errorf("thread %s has no messages", threadID)
+	}
+	info := replyInfoFromMessage(msg)
+	if info.ThreadID == "" {
+		info.ThreadID = thread.Id
+	}
+	return info, nil
+}
+
+func replyInfoFromMessage(msg *gmail.Message) *replyInfo {
+	if msg == nil {
+		return &replyInfo{}
+	}
 	info := &replyInfo{
 		ThreadID:    msg.ThreadId,
 		FromAddr:    headerValue(msg.Payload, "From"),
@@ -246,7 +286,30 @@ func fetchReplyInfo(ctx context.Context, svc *gmail.Service, replyToMessageID st
 	} else if messageID != "" && !strings.Contains(info.References, messageID) {
 		info.References = info.References + " " + messageID
 	}
-	return info, nil
+	return info
+}
+
+func selectLatestThreadMessage(messages []*gmail.Message) *gmail.Message {
+	var selected *gmail.Message
+	var selectedDate int64
+	hasDate := false
+	for _, msg := range messages {
+		if msg == nil {
+			continue
+		}
+		if msg.InternalDate <= 0 {
+			if selected == nil && !hasDate {
+				selected = msg
+			}
+			continue
+		}
+		if !hasDate || msg.InternalDate > selectedDate {
+			selectedDate = msg.InternalDate
+			selected = msg
+			hasDate = true
+		}
+	}
+	return selected
 }
 
 // parseEmailAddresses parses RFC 5322 email addresses from a header value.

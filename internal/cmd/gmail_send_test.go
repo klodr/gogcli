@@ -93,6 +93,113 @@ func TestReplyHeaders(t *testing.T) {
 	}
 }
 
+func TestFetchReplyInfo_ThreadID(t *testing.T) {
+	type hdr struct {
+		Name  string
+		Value string
+	}
+	type msg struct {
+		ID           string
+		ThreadID     string
+		InternalDate string
+		Headers      []hdr
+	}
+
+	thread := struct {
+		ID       string
+		Messages []msg
+	}{
+		ID: "t1",
+		Messages: []msg{
+			{
+				ID:           "m1",
+				ThreadID:     "t1",
+				InternalDate: "1000",
+				Headers: []hdr{
+					{Name: "Message-ID", Value: "<id1@example.com>"},
+					{Name: "From", Value: "sender@example.com"},
+				},
+			},
+			{
+				ID:           "m2",
+				ThreadID:     "t1",
+				InternalDate: "2000",
+				Headers: []hdr{
+					{Name: "Message-ID", Value: "<id2@example.com>"},
+					{Name: "From", Value: "sender2@example.com"},
+				},
+			},
+		},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/gmail/v1/users/me/threads/") {
+			http.NotFound(w, r)
+			return
+		}
+		id := strings.TrimPrefix(r.URL.Path, "/gmail/v1/users/me/threads/")
+		if id != thread.ID {
+			http.NotFound(w, r)
+			return
+		}
+		msgs := make([]map[string]any, 0, len(thread.Messages))
+		for _, m := range thread.Messages {
+			hs := make([]map[string]any, 0, len(m.Headers))
+			for _, h := range m.Headers {
+				hs = append(hs, map[string]any{"name": h.Name, "value": h.Value})
+			}
+			msgs = append(msgs, map[string]any{
+				"id":           m.ID,
+				"threadId":     m.ThreadID,
+				"internalDate": m.InternalDate,
+				"payload": map[string]any{
+					"headers": hs,
+				},
+			})
+		}
+		resp := map[string]any{
+			"id":       thread.ID,
+			"messages": msgs,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	svc, err := gmail.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	info, err := fetchReplyInfo(context.Background(), svc, "", "t1")
+	if err != nil {
+		t.Fatalf("fetchReplyInfo: %v", err)
+	}
+	if info.ThreadID != "t1" {
+		t.Fatalf("unexpected thread: %q", info.ThreadID)
+	}
+	if info.InReplyTo != "<id2@example.com>" {
+		t.Fatalf("unexpected inReplyTo: %q", info.InReplyTo)
+	}
+}
+
+func TestSelectLatestThreadMessage(t *testing.T) {
+	m1 := &gmail.Message{Id: "m1"}
+	m2 := &gmail.Message{Id: "m2", InternalDate: 10}
+	m3 := &gmail.Message{Id: "m3", InternalDate: 20}
+	if got := selectLatestThreadMessage([]*gmail.Message{m1, m2, m3}); got == nil || got.Id != "m3" {
+		t.Fatalf("expected m3, got %#v", got)
+	}
+
+	if got := selectLatestThreadMessage([]*gmail.Message{nil, m1}); got == nil || got.Id != "m1" {
+		t.Fatalf("expected m1 fallback, got %#v", got)
+	}
+}
+
 func TestParseEmailAddresses(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -459,7 +566,7 @@ func TestFetchReplyInfo(t *testing.T) {
 	ctx := context.Background()
 
 	// Test m1: multiple recipients
-	info, err := fetchReplyInfo(ctx, svc, "m1")
+	info, err := fetchReplyInfo(ctx, svc, "m1", "")
 	if err != nil {
 		t.Fatalf("fetchReplyInfo(m1): %v", err)
 	}
@@ -479,7 +586,7 @@ func TestFetchReplyInfo(t *testing.T) {
 	}
 
 	// Test m2: sender with display name
-	info, err = fetchReplyInfo(ctx, svc, "m2")
+	info, err = fetchReplyInfo(ctx, svc, "m2", "")
 	if err != nil {
 		t.Fatalf("fetchReplyInfo(m2): %v", err)
 	}
@@ -488,7 +595,7 @@ func TestFetchReplyInfo(t *testing.T) {
 	}
 
 	// Test empty message ID
-	info, err = fetchReplyInfo(ctx, svc, "")
+	info, err = fetchReplyInfo(ctx, svc, "", "")
 	if err != nil {
 		t.Fatalf("fetchReplyInfo(''): %v", err)
 	}
@@ -497,7 +604,7 @@ func TestFetchReplyInfo(t *testing.T) {
 	}
 
 	// Test m3: message with Reply-To header
-	info, err = fetchReplyInfo(ctx, svc, "m3")
+	info, err = fetchReplyInfo(ctx, svc, "m3", "")
 	if err != nil {
 		t.Fatalf("fetchReplyInfo(m3): %v", err)
 	}
@@ -516,7 +623,7 @@ func TestReplyAllValidation(t *testing.T) {
 	}
 
 	// This would normally go through Run(), but we can test the validation logic
-	if cmd.ReplyAll && strings.TrimSpace(cmd.ReplyToMessageID) == "" {
+	if cmd.ReplyAll && strings.TrimSpace(cmd.ReplyToMessageID) == "" && strings.TrimSpace(cmd.ThreadID) == "" {
 		// Expected: should require --reply-to-message-id
 	} else {
 		t.Error("Expected validation to require --reply-to-message-id when --reply-all is set")
@@ -526,6 +633,12 @@ func TestReplyAllValidation(t *testing.T) {
 	cmd.ReplyToMessageID = "msg123"
 	if cmd.ReplyAll && strings.TrimSpace(cmd.ReplyToMessageID) == "" {
 		t.Error("Should not require --reply-to-message-id when it's already set")
+	}
+
+	cmd.ReplyToMessageID = ""
+	cmd.ThreadID = "thread123"
+	if cmd.ReplyAll && strings.TrimSpace(cmd.ThreadID) == "" {
+		t.Error("Should not require --reply-to-message-id when --thread-id is set")
 	}
 
 	// Test --to is optional when --reply-all is used
