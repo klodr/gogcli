@@ -10,6 +10,8 @@ import (
 	"fmt"
 )
 
+var errCiphertextTooShort = errors.New("ciphertext too short")
+
 // PixelPayload is encrypted into the tracking pixel URL
 // to be decrypted by the worker.
 type PixelPayload struct {
