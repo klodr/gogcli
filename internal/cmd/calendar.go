@@ -31,6 +31,7 @@ type CalendarCmd struct {
 	Conflicts CalendarConflictsCmd `cmd:"" name:"conflicts" help:"Find conflicts"`
 	Search    CalendarSearchCmd    `cmd:"" name:"search" help:"Search events"`
 	Time      CalendarTimeCmd      `cmd:"" name:"time" help:"Show server time"`
+	Users     CalendarUsersCmd     `cmd:"" name:"users" help:"List workspace users (use their email as calendar ID)"`
 }
 
 type CalendarCalendarsCmd struct {
