@@ -43,6 +43,7 @@ type CLI struct {
 	People     PeopleCmd     `cmd:"" help:"Google People"`
 	Sheets     SheetsCmd     `cmd:"" help:"Google Sheets"`
 	Keep       KeepCmd       `cmd:"" help:"Google Keep (Workspace only)"`
+	Groups     GroupsCmd     `cmd:"" help:"Google Groups (Cloud Identity)"`
 	VersionCmd VersionCmd    `cmd:"" name:"version" help:"Print version"`
 	Completion CompletionCmd `cmd:"" help:"Generate shell completion scripts"`
 }
