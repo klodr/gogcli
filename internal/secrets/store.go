@@ -70,19 +70,15 @@ func ResolveKeyringBackendInfo() (KeyringBackendInfo, error) {
 		return KeyringBackendInfo{}, fmt.Errorf("read config: %w", err)
 	}
 
-	if v := strings.TrimSpace(cfg.KeyringBackend); v != "" {
-		return KeyringBackendInfo{Value: strings.ToLower(v), Source: keyringBackendSourceConfig}, nil
+	if cfg.KeyringBackend != "" {
+		return KeyringBackendInfo{Value: cfg.KeyringBackend, Source: keyringBackendSourceConfig}, nil
 	}
 
 	return KeyringBackendInfo{Value: "auto", Source: keyringBackendSourceDefault}, nil
 }
 
 func allowedBackends(info KeyringBackendInfo) ([]keyring.BackendType, error) {
-	raw := strings.TrimSpace(info.Value)
-
-	v := strings.ToLower(raw)
-
-	switch v {
+	switch info.Value {
 	case "", "auto":
 		return nil, nil
 	case "keychain":
@@ -90,7 +86,7 @@ func allowedBackends(info KeyringBackendInfo) ([]keyring.BackendType, error) {
 	case "file":
 		return []keyring.BackendType{keyring.FileBackend}, nil
 	default:
-		return nil, fmt.Errorf("%w: %q (expected auto, keychain, or file)", errInvalidKeyringBackend, raw)
+		return nil, fmt.Errorf("%w: %q (expected auto, keychain, or file)", errInvalidKeyringBackend, info.Value)
 	}
 }
 
@@ -125,7 +121,7 @@ func fileKeyringPasswordFunc() keyring.PromptFunc {
 	return fileKeyringPasswordFuncFrom(os.Getenv(keyringPasswordEnv), term.IsTerminal(int(os.Stdin.Fd())))
 }
 
-func openKeyring() (keyring.Keyring, error) {
+func OpenDefault() (Store, error) {
 	// On Linux/WSL/containers, OS keychains (secret-service/kwallet) may be unavailable.
 	// In that case github.com/99designs/keyring falls back to the "file" backend,
 	// which *requires* both a directory and a password prompt function.
@@ -155,56 +151,7 @@ func openKeyring() (keyring.Keyring, error) {
 		return nil, fmt.Errorf("open keyring: %w", err)
 	}
 
-	return ring, nil
-}
-
-func OpenDefault() (Store, error) {
-	ring, err := openKeyring()
-	if err != nil {
-		return nil, err
-	}
-
 	return &KeyringStore{ring: ring}, nil
-}
-
-func SetSecret(key string, data []byte) error {
-	ring, err := openKeyring()
-	if err != nil {
-		return err
-	}
-
-	if err := ring.Set(keyring.Item{Key: key, Data: data}); err != nil {
-		return wrapKeychainError(fmt.Errorf("store secret: %w", err))
-	}
-
-	return nil
-}
-
-func GetSecret(key string) ([]byte, error) {
-	ring, err := openKeyring()
-	if err != nil {
-		return nil, err
-	}
-
-	it, err := ring.Get(key)
-	if err != nil {
-		return nil, wrapKeychainError(fmt.Errorf("read secret: %w", err))
-	}
-
-	return it.Data, nil
-}
-
-func DeleteSecret(key string) error {
-	ring, err := openKeyring()
-	if err != nil {
-		return err
-	}
-
-	if err := ring.Remove(key); err != nil {
-		return wrapKeychainError(fmt.Errorf("delete secret: %w", err))
-	}
-
-	return nil
 }
 
 func (s *KeyringStore) Keys() ([]string, error) {

@@ -51,8 +51,8 @@ func TestReadConfig_JSON5(t *testing.T) {
 		t.Fatalf("ConfigPath: %v", err)
 	}
 
-	if mkErr := os.MkdirAll(filepath.Dir(path), 0o700); mkErr != nil {
-		t.Fatalf("mkdir: %v", mkErr)
+	if mkdirErr := os.MkdirAll(filepath.Dir(path), 0o700); mkdirErr != nil {
+		t.Fatalf("mkdir: %v", mkdirErr)
 	}
 
 	data := `{

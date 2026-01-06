@@ -40,8 +40,8 @@ func TestResolveKeyringBackendInfo_Config(t *testing.T) {
 		t.Fatalf("ConfigPath: %v", err)
 	}
 
-	if mkErr := os.MkdirAll(filepath.Dir(path), 0o700); mkErr != nil {
-		t.Fatalf("mkdir: %v", mkErr)
+	if mkdirErr := os.MkdirAll(filepath.Dir(path), 0o700); mkdirErr != nil {
+		t.Fatalf("mkdir: %v", mkdirErr)
 	}
 
 	if writeErr := os.WriteFile(path, []byte(`{ keyring_backend: "file" }`), 0o600); writeErr != nil {
@@ -73,8 +73,8 @@ func TestResolveKeyringBackendInfo_EnvOverridesConfig(t *testing.T) {
 		t.Fatalf("ConfigPath: %v", err)
 	}
 
-	if mkErr := os.MkdirAll(filepath.Dir(path), 0o700); mkErr != nil {
-		t.Fatalf("mkdir: %v", mkErr)
+	if mkdirErr := os.MkdirAll(filepath.Dir(path), 0o700); mkdirErr != nil {
+		t.Fatalf("mkdir: %v", mkdirErr)
 	}
 
 	if writeErr := os.WriteFile(path, []byte(`{ keyring_backend: "file" }`), 0o600); writeErr != nil {

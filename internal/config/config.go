@@ -16,7 +16,7 @@ type File struct {
 func ConfigPath() (string, error) {
 	dir, err := Dir()
 	if err != nil {
-		return "", fmt.Errorf("config dir: %w", err)
+		return "", err
 	}
 
 	return filepath.Join(dir, "config.json"), nil
@@ -33,7 +33,7 @@ func ConfigExists() (bool, error) {
 			return false, nil
 		}
 
-		return false, fmt.Errorf("stat config %s: %w", path, statErr)
+		return false, fmt.Errorf("stat config: %w", statErr)
 	}
 
 	return true, nil
