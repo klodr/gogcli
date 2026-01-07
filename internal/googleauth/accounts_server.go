@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -44,6 +45,19 @@ type ManageServer struct {
 }
 
 var openDefaultStore = secrets.OpenDefault
+
+// fetchUserEmailFn allows mocking in tests
+var fetchUserEmailFn = fetchUserEmail
+
+const (
+	userinfoURL        = "https://www.googleapis.com/oauth2/v2/userinfo"
+	userinfoEmailScope = "https://www.googleapis.com/auth/userinfo.email"
+)
+
+var (
+	errUserinfoRequestFailed = errors.New("userinfo request failed")
+	errNoEmailInResponse     = errors.New("no email in userinfo response")
+)
 
 // StartManageServer starts the accounts management server and opens browser
 func StartManageServer(ctx context.Context, opts ManageServerOptions) error {
@@ -194,7 +208,7 @@ func (ms *ManageServer) handleAuthStart(w http.ResponseWriter, r *http.Request) 
 		services = AllServices()
 	}
 
-	scopes, err := ScopesForServices(services)
+	scopes, err := scopesForManage(services)
 	if err != nil {
 		http.Error(w, "Failed to get scopes", http.StatusInternalServerError)
 		return
@@ -255,7 +269,13 @@ func (ms *ManageServer) handleOAuthCallback(w http.ResponseWriter, r *http.Reque
 		services = AllServices()
 	}
 
-	scopes, _ := ScopesForServices(services)
+	scopes, err := scopesForManage(services)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		renderErrorPage(w, "Failed to get scopes: "+err.Error())
+
+		return
+	}
 
 	port := ms.listener.Addr().(*net.TCPAddr).Port
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d/oauth2/callback", port)
@@ -286,11 +306,20 @@ func (ms *ManageServer) handleOAuthCallback(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get user email from token
-	email := q.Get("email")
-	if email == "" {
-		// Try to get email from ID token or use a placeholder
-		email = "user@gmail.com"
+	if tok.AccessToken == "" {
+		w.WriteHeader(http.StatusInternalServerError)
+		renderErrorPage(w, "No access token received from token exchange.")
+
+		return
+	}
+
+	// Fetch user email from Google's userinfo API
+	email, err := fetchUserEmailFn(ctx, tok.AccessToken)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		renderErrorPage(w, "Failed to fetch user email: "+err.Error())
+
+		return
 	}
 
 	// Pre-flight: ensure keychain is accessible before storing token
@@ -378,6 +407,86 @@ func (ms *ManageServer) handleRemoveAccount(w http.ResponseWriter, r *http.Reque
 	}
 
 	writeJSON(w, map[string]any{"success": true})
+}
+
+func scopesForManage(services []Service) ([]string, error) {
+	scopes, err := ScopesForServices(services)
+	if err != nil {
+		return nil, err
+	}
+
+	return mergeScopes(scopes, []string{userinfoEmailScope}), nil
+}
+
+func mergeScopes(scopes []string, extras []string) []string {
+	set := make(map[string]struct{}, len(scopes)+len(extras))
+
+	for _, s := range scopes {
+		if s == "" {
+			continue
+		}
+
+		set[s] = struct{}{}
+	}
+
+	for _, s := range extras {
+		if s == "" {
+			continue
+		}
+
+		set[s] = struct{}{}
+	}
+
+	out := make([]string, 0, len(set))
+	for s := range set {
+		out = append(out, s)
+	}
+
+	sort.Strings(out)
+
+	return out
+}
+
+// fetchUserEmail retrieves the user's email from Google's userinfo API using an access token.
+func fetchUserEmail(ctx context.Context, accessToken string) (string, error) {
+	return fetchUserEmailWithURL(ctx, accessToken, userinfoURL)
+}
+
+// fetchUserEmailWithURL retrieves the user's email from the specified userinfo URL.
+// This is separated for testability.
+func fetchUserEmailWithURL(ctx context.Context, accessToken string, url string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("create userinfo request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("fetch userinfo: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("%w: status %d", errUserinfoRequestFailed, resp.StatusCode)
+	}
+
+	var userInfo struct {
+		Email string `json:"email"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return "", fmt.Errorf("decode userinfo response: %w", err)
+	}
+
+	if userInfo.Email == "" {
+		return "", errNoEmailInResponse
+	}
+
+	return userInfo.Email, nil
 }
 
 func generateCSRFToken() (string, error) {
