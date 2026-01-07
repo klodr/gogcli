@@ -11,6 +11,7 @@ func TestParseService(t *testing.T) {
 		{"GMAIL", ServiceGmail},
 		{"calendar", ServiceCalendar},
 		{"drive", ServiceDrive},
+		{"docs", ServiceDocs},
 		{"contacts", ServiceContacts},
 		{"tasks", ServiceTasks},
 		{"people", ServicePeople},
@@ -58,7 +59,7 @@ func TestExtractCodeAndState_Errors(t *testing.T) {
 
 func TestAllServices(t *testing.T) {
 	svcs := AllServices()
-	if len(svcs) != 8 {
+	if len(svcs) != 9 {
 		t.Fatalf("unexpected: %v", svcs)
 	}
 	seen := make(map[Service]bool)
@@ -67,7 +68,7 @@ func TestAllServices(t *testing.T) {
 		seen[s] = true
 	}
 
-	for _, want := range []Service{ServiceGmail, ServiceCalendar, ServiceDrive, ServiceContacts, ServiceTasks, ServicePeople, ServiceSheets, ServiceKeep} {
+	for _, want := range []Service{ServiceGmail, ServiceCalendar, ServiceDrive, ServiceDocs, ServiceContacts, ServiceTasks, ServicePeople, ServiceSheets, ServiceKeep} {
 		if !seen[want] {
 			t.Fatalf("missing %q", want)
 		}
@@ -76,14 +77,22 @@ func TestAllServices(t *testing.T) {
 
 func TestUserServices(t *testing.T) {
 	svcs := UserServices()
-	if len(svcs) != 7 {
+	if len(svcs) != 8 {
 		t.Fatalf("unexpected: %v", svcs)
 	}
 
+	seenDocs := false
 	for _, s := range svcs {
-		if s == ServiceKeep {
+		switch s {
+		case ServiceDocs:
+			seenDocs = true
+		case ServiceKeep:
 			t.Fatalf("unexpected keep in user services")
 		}
+	}
+
+	if !seenDocs {
+		t.Fatalf("missing docs in user services")
 	}
 }
 

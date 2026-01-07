@@ -13,6 +13,7 @@ const (
 	ServiceGmail    Service = "gmail"
 	ServiceCalendar Service = "calendar"
 	ServiceDrive    Service = "drive"
+	ServiceDocs     Service = "docs"
 	ServiceContacts Service = "contacts"
 	ServiceTasks    Service = "tasks"
 	ServicePeople   Service = "people"
@@ -24,16 +25,16 @@ var errUnknownService = errors.New("unknown service")
 
 func ParseService(s string) (Service, error) {
 	switch Service(strings.ToLower(strings.TrimSpace(s))) {
-	case ServiceGmail, ServiceCalendar, ServiceDrive, ServiceContacts, ServiceTasks, ServicePeople, ServiceSheets, ServiceKeep:
+	case ServiceGmail, ServiceCalendar, ServiceDrive, ServiceDocs, ServiceContacts, ServiceTasks, ServicePeople, ServiceSheets, ServiceKeep:
 		return Service(strings.ToLower(strings.TrimSpace(s))), nil
 	default:
-		return "", fmt.Errorf("%w %q (expected gmail|calendar|drive|contacts|tasks|people|sheets|keep)", errUnknownService, s)
+		return "", fmt.Errorf("%w %q (expected gmail|calendar|drive|docs|contacts|tasks|people|sheets|keep)", errUnknownService, s)
 	}
 }
 
 // UserServices are the default OAuth services intended for consumer ("regular") accounts.
 func UserServices() []Service {
-	return []Service{ServiceGmail, ServiceCalendar, ServiceDrive, ServiceContacts, ServiceTasks, ServicePeople, ServiceSheets}
+	return []Service{ServiceGmail, ServiceCalendar, ServiceDrive, ServiceDocs, ServiceContacts, ServiceTasks, ServicePeople, ServiceSheets}
 }
 
 func AllServices() []Service {
@@ -48,6 +49,8 @@ func Scopes(service Service) ([]string, error) {
 		return []string{"https://www.googleapis.com/auth/calendar"}, nil
 	case ServiceDrive:
 		return []string{"https://www.googleapis.com/auth/drive"}, nil
+	case ServiceDocs:
+		return []string{"https://www.googleapis.com/auth/documents"}, nil
 	case ServiceContacts:
 		return []string{
 			"https://www.googleapis.com/auth/contacts",

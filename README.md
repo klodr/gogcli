@@ -123,7 +123,7 @@ gog auth list
 
 ### Service Scopes
 
-By default, `gog auth add` requests access to the **user** services (gmail, calendar, drive, contacts, tasks, sheets, people).
+By default, `gog auth add` requests access to the **user** services (gmail, calendar, drive, docs, contacts, tasks, sheets, people).
 
 To request fewer scopes:
 

@@ -20,6 +20,7 @@
 - Gmail: reorganize `gog gmail --help` into sections and add `gog gmail settings ...` (old subcommands remain available).
 - Keep: add Workspace-only Google Keep support (service account + domain-wide delegation) (#32) — thanks @koala73.
 - Auth: `gog auth add` now defaults to `--services user` (`--services all` accepted as an alias for backwards compatibility).
+- Auth: allow `docs` in `gog auth add --services` (#33) — thanks @mbelinky.
 
 ## 0.4.2 - 2025-12-31
 
