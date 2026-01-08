@@ -169,15 +169,10 @@ func messageByDate(t *gmail.Thread, oldest bool) *gmail.Message {
 			continue
 		}
 		date := messageDateMillis(msg)
-		if picked == nil {
-			picked = msg
-			pickedDate = date
-			continue
-		}
 		if date == 0 {
 			continue
 		}
-		if pickedDate == 0 {
+		if picked == nil {
 			picked = msg
 			pickedDate = date
 			continue
@@ -194,13 +189,21 @@ func messageByDate(t *gmail.Thread, oldest bool) *gmail.Message {
 			pickedDate = date
 		}
 	}
-	if pickedDate != 0 {
+	if picked != nil {
 		return picked
 	}
 	if oldest {
 		return firstMessage(t)
 	}
 	return lastMessage(t)
+}
+
+func newestMessageByDate(t *gmail.Thread) *gmail.Message {
+	return messageByDate(t, false)
+}
+
+func oldestMessageByDate(t *gmail.Thread) *gmail.Message {
+	return messageByDate(t, true)
 }
 
 func headerValue(p *gmail.MessagePart, name string) string {
@@ -396,7 +399,10 @@ func fetchThreadDetails(ctx context.Context, svc *gmail.Service, threads []*gmai
 				}
 			}
 			// Date from newest message by default, oldest if --oldest
-			dateMsg := messageByDate(thread, oldest)
+			dateMsg := newestMessageByDate(thread)
+			if oldest {
+				dateMsg = oldestMessageByDate(thread)
+			}
 			if dateMsg != nil {
 				item.Date = formatGmailDate(headerValue(dateMsg.Payload, "Date"))
 			}
