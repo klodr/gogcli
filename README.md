@@ -336,6 +336,8 @@ gog gmail track opens --to recipient@example.com
 gog gmail track status
 ```
 
+Docs: `docs/email-tracking.md` (setup/deploy) + `docs/email-tracking-worker.md` (internals).
+
 **Notes:** `--track` requires exactly 1 recipient (no cc/bcc) and an HTML body (`--body-html`). The tracking worker stores IP/user-agent + coarse geo by default.
 
 ### Calendar
