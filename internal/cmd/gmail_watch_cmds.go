@@ -371,6 +371,9 @@ func writeWatchState(ctx context.Context, state gmailWatchState) error {
 	if state.LastDeliveryStatusNote != "" {
 		u.Out().Printf("last_delivery_note\t%s", state.LastDeliveryStatusNote)
 	}
+	if state.LastPushMessageID != "" {
+		u.Out().Printf("last_push_message_id\t%s", state.LastPushMessageID)
+	}
 	return nil
 }
 

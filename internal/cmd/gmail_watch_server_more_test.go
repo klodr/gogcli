@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -258,6 +259,47 @@ func TestGmailWatchServer_ResyncHistory_OnStaleError(t *testing.T) {
 	}
 	if got == nil || got.HistoryID != "200" || len(got.Messages) != 1 {
 		t.Fatalf("unexpected: %#v", got)
+	}
+}
+
+func TestGmailWatchServer_HandlePush_DuplicateMessageID(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	store, err := newGmailWatchStore("a@b.com")
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	if updateErr := store.Update(func(s *gmailWatchState) error {
+		s.Account = "a@b.com"
+		s.HistoryID = "100"
+		s.LastPushMessageID = "dup"
+		return nil
+	}); updateErr != nil {
+		t.Fatalf("seed: %v", updateErr)
+	}
+
+	server := &gmailWatchServer{
+		cfg:   gmailWatchServeConfig{Account: "a@b.com"},
+		store: store,
+		newService: func(context.Context, string) (*gmail.Service, error) {
+			t.Fatalf("unexpected service call")
+			return nil, errors.New("unexpected service call")
+		},
+		logf:  func(string, ...any) {},
+		warnf: func(string, ...any) {},
+	}
+
+	_, err = server.handlePush(context.Background(), gmailPushPayload{
+		EmailAddress: "a@b.com",
+		HistoryID:    "200",
+		MessageID:    "dup",
+	})
+	if err == nil || !errors.Is(err, errNoNewMessages) {
+		t.Fatalf("expected no new messages, got %v", err)
+	}
+	if store.Get().LastPushMessageID != "dup" {
+		t.Fatalf("expected last push unchanged")
 	}
 }
 

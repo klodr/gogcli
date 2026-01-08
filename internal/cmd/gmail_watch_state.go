@@ -110,33 +110,36 @@ func (s *gmailWatchStore) StartHistoryID(pushHistory string) (uint64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	pushHistory = strings.TrimSpace(pushHistory)
+	pushID, pushOK, pushErr := parseHistoryIDOptional(pushHistory)
 
 	// If no stored state, use push historyId
 	if s.state.HistoryID == "" {
-		if pushHistory == "" {
+		if !pushOK {
+			if pushErr != nil {
+				return 0, pushErr
+			}
 			return 0, nil
 		}
-		pushID, err := parseHistoryID(pushHistory)
-		if err != nil {
-			return 0, err
+		if pushErr != nil {
+			return 0, pushErr
 		}
-		s.state.HistoryID = pushHistory
+		s.state.HistoryID = formatHistoryID(pushID)
 		s.state.UpdatedAtMs = time.Now().UnixMilli()
 		_ = s.Save()
 		return pushID, nil
 	}
 
-	storedID, err := parseHistoryID(s.state.HistoryID)
+	storedID, storedOK, err := parseHistoryIDOptional(s.state.HistoryID)
 	if err != nil {
 		return 0, err
 	}
-	if pushHistory == "" {
+	if !storedOK {
+		return 0, nil
+	}
+	if pushErr != nil {
 		return storedID, nil
 	}
-
-	pushID, err := parseHistoryID(pushHistory)
-	if err != nil {
+	if !pushOK {
 		return storedID, nil
 	}
 	if pushID <= storedID {
@@ -144,6 +147,55 @@ func (s *gmailWatchStore) StartHistoryID(pushHistory string) (uint64, error) {
 	}
 
 	return storedID, nil
+}
+
+func parseHistoryIDOptional(raw string) (uint64, bool, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return 0, false, nil
+	}
+	id, err := parseHistoryID(trimmed)
+	if err != nil {
+		return 0, true, err
+	}
+	return id, true, nil
+}
+
+func compareHistoryIDs(storedRaw, candidateRaw string) (storedID, candidateID uint64, storedOK, candidateOK bool, err error) {
+	storedID, storedOK, err = parseHistoryIDOptional(storedRaw)
+	if err != nil {
+		return 0, 0, false, false, err
+	}
+	candidateID, candidateOK, err = parseHistoryIDOptional(candidateRaw)
+	if err != nil {
+		return storedID, 0, storedOK, true, err
+	}
+	return storedID, candidateID, storedOK, candidateOK, nil
+}
+
+func shouldUpdateHistoryID(currentRaw, candidateRaw string) (bool, error) {
+	currentID, candidateID, currentOK, candidateOK, err := compareHistoryIDs(currentRaw, candidateRaw)
+	if err != nil {
+		return false, err
+	}
+	if !candidateOK {
+		return false, nil
+	}
+	if !currentOK {
+		return true, nil
+	}
+	return candidateID >= currentID, nil
+}
+
+func isStaleHistoryID(currentRaw, candidateRaw string) (bool, error) {
+	currentID, candidateID, currentOK, candidateOK, err := compareHistoryIDs(currentRaw, candidateRaw)
+	if err != nil {
+		return false, err
+	}
+	if !currentOK || !candidateOK {
+		return false, nil
+	}
+	return candidateID <= currentID, nil
 }
 
 func parseHistoryID(raw string) (uint64, error) {

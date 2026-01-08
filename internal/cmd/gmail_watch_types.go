@@ -36,6 +36,7 @@ type gmailWatchState struct {
 	LastDeliveryStatus     string          `json:"lastDeliveryStatus,omitempty"`
 	LastDeliveryAtMs       int64           `json:"lastDeliveryAtMs,omitempty"`
 	LastDeliveryStatusNote string          `json:"lastDeliveryStatusNote,omitempty"`
+	LastPushMessageID      string          `json:"lastPushMessageId,omitempty"`
 }
 
 type gmailWatchServeConfig struct {
@@ -72,6 +73,7 @@ type pubsubPushEnvelope struct {
 type gmailPushPayload struct {
 	EmailAddress string `json:"emailAddress"`
 	HistoryID    string `json:"historyId"`
+	MessageID    string `json:"-"`
 }
 
 func (p *gmailPushPayload) UnmarshalJSON(data []byte) error {

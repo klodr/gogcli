@@ -147,11 +147,27 @@ func (s *gmailWatchServer) oidcAudience(r *http.Request) string {
 
 func (s *gmailWatchServer) handlePush(ctx context.Context, payload gmailPushPayload) (*gmailHookPayload, error) {
 	store := s.store
+	if payload.MessageID != "" {
+		state := store.Get()
+		if state.LastPushMessageID == payload.MessageID {
+			s.logf("watch: ignoring duplicate push %s", payload.MessageID)
+			return nil, errNoNewMessages
+		}
+	}
 	startID, err := store.StartHistoryID(payload.HistoryID)
 	if err != nil {
 		return nil, err
 	}
 	if startID == 0 {
+		if payload.HistoryID != "" {
+			state := store.Get()
+			stale, staleErr := isStaleHistoryID(state.HistoryID, payload.HistoryID)
+			if staleErr != nil {
+				s.warnf("watch: history id compare failed: %v", staleErr)
+			} else if stale {
+				s.logf("watch: ignoring stale push historyId=%s (stored=%s)", payload.HistoryID, state.HistoryID)
+			}
+		}
 		return nil, errNoNewMessages
 	}
 
@@ -166,7 +182,7 @@ func (s *gmailWatchServer) handlePush(ctx context.Context, payload gmailPushPayl
 	historyResp, err := historyCall.Do()
 	if err != nil {
 		if isStaleHistoryError(err) {
-			return s.resyncHistory(ctx, svc, payload.HistoryID)
+			return s.resyncHistory(ctx, svc, payload.HistoryID, payload.MessageID)
 		}
 		return nil, err
 	}
@@ -182,23 +198,16 @@ func (s *gmailWatchServer) handlePush(ctx context.Context, payload gmailPushPayl
 		nextHistoryID = formatHistoryID(historyResp.HistoryId)
 	}
 	if err := store.Update(func(state *gmailWatchState) error {
-		if strings.TrimSpace(nextHistoryID) == "" {
-			return nil
-		}
-		nextID, err := parseHistoryID(nextHistoryID)
+		shouldUpdate, err := shouldUpdateHistoryID(state.HistoryID, nextHistoryID)
 		if err != nil {
 			return err
 		}
-		if state.HistoryID != "" {
-			currentID, err := parseHistoryID(state.HistoryID)
-			if err != nil {
-				return err
-			}
-			if nextID < currentID {
-				return nil
-			}
+		if shouldUpdate {
+			state.HistoryID = nextHistoryID
 		}
-		state.HistoryID = nextHistoryID
+		if payload.MessageID != "" {
+			state.LastPushMessageID = payload.MessageID
+		}
 		state.UpdatedAtMs = time.Now().UnixMilli()
 		return nil
 	}); err != nil {
@@ -213,7 +222,7 @@ func (s *gmailWatchServer) handlePush(ctx context.Context, payload gmailPushPayl
 	}, nil
 }
 
-func (s *gmailWatchServer) resyncHistory(ctx context.Context, svc *gmail.Service, historyID string) (*gmailHookPayload, error) {
+func (s *gmailWatchServer) resyncHistory(ctx context.Context, svc *gmail.Service, historyID string, messageID string) (*gmailHookPayload, error) {
 	list, err := svc.Users.Messages.List("me").MaxResults(s.cfg.ResyncMax).Do()
 	if err != nil {
 		return nil, err
@@ -230,7 +239,16 @@ func (s *gmailWatchServer) resyncHistory(ctx context.Context, svc *gmail.Service
 	}
 
 	if err := s.store.Update(func(state *gmailWatchState) error {
-		state.HistoryID = historyID
+		shouldUpdate, err := shouldUpdateHistoryID(state.HistoryID, historyID)
+		if err != nil {
+			return err
+		}
+		if shouldUpdate {
+			state.HistoryID = historyID
+		}
+		if messageID != "" {
+			state.LastPushMessageID = messageID
+		}
 		state.UpdatedAtMs = time.Now().UnixMilli()
 		return nil
 	}); err != nil {
@@ -359,6 +377,7 @@ func decodeGmailPushPayload(envelope *pubsubPushEnvelope) (gmailPushPayload, err
 	if err := json.Unmarshal(decoded, &payload); err != nil {
 		return gmailPushPayload{}, err
 	}
+	payload.MessageID = strings.TrimSpace(envelope.Message.MessageID)
 	return payload, nil
 }
 
