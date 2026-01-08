@@ -4,6 +4,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := build
 
 .PHONY: build gog gogcli gog-help gogcli-help help fmt fmt-check lint test ci tools
+.PHONY: worker-ci
 
 BIN_DIR := $(CURDIR)/bin
 BIN := $(BIN_DIR)/gog
@@ -84,3 +85,8 @@ test:
 	@go test ./...
 
 ci: pnpm-gate fmt-check lint test
+
+worker-ci:
+	@pnpm -C internal/tracking/worker lint
+	@pnpm -C internal/tracking/worker build
+	@pnpm -C internal/tracking/worker test

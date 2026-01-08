@@ -1,6 +1,7 @@
 {
   "name": "gog-email-tracker",
   "version": "1.0.0",
+  "packageManager": "pnpm@10.27.0",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",

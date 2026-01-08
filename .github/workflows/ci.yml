@@ -22,6 +22,26 @@ jobs:
       - name: Lint
         run: make lint
 
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: internal/tracking/worker/pnpm-lock.yaml
+      - name: Enable Corepack (pnpm)
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm -C internal/tracking/worker install --frozen-lockfile
+      - name: Lint
+        run: pnpm -C internal/tracking/worker lint
+      - name: Build
+        run: pnpm -C internal/tracking/worker build
+      - name: Test
+        run: pnpm -C internal/tracking/worker test
+
   darwin-cgo-build:
     runs-on: macos-latest
     steps:
