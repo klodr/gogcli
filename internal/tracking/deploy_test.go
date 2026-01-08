@@ -3,14 +3,17 @@ package tracking
 import "testing"
 
 func TestSanitizeWorkerName(t *testing.T) {
-	cases := map[string]string{
-		"Test@Example.com": "test-example-com",
-		" gog--tracker ":   "gog-tracker",
-		"___":              "",
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{input: "Test@Example.com", want: "test-example-com"},
+		{input: " gog--tracker ", want: "gog-tracker"},
+		{input: "___", want: ""},
 	}
-	for input, want := range cases {
-		if got := SanitizeWorkerName(input); got != want {
-			t.Fatalf("SanitizeWorkerName(%q) = %q, want %q", input, got, want)
+	for _, tc := range cases {
+		if got := SanitizeWorkerName(tc.input); got != tc.want {
+			t.Fatalf("SanitizeWorkerName(%q) = %q, want %q", tc.input, got, tc.want)
 		}
 	}
 
@@ -21,17 +24,20 @@ func TestSanitizeWorkerName(t *testing.T) {
 }
 
 func TestParseDatabaseID(t *testing.T) {
-	cases := map[string]string{
-		`database_id = "abc-123"`:   "abc-123",
-		`database_id: abc-123`:      "abc-123",
-		`Database ID: abc-123`:      "abc-123",
-		`database_id: "xyz-789"`:    "xyz-789",
-		`Database ID: 12345`:        "12345",
-		`database_id = "with-dash"`: "with-dash",
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{input: `database_id = "abc-123"`, want: "abc-123"},
+		{input: `database_id: abc-123`, want: "abc-123"},
+		{input: `Database ID: abc-123`, want: "abc-123"},
+		{input: `database_id: "xyz-789"`, want: "xyz-789"},
+		{input: `Database ID: 12345`, want: "12345"},
+		{input: `database_id = "with-dash"`, want: "with-dash"},
 	}
-	for input, want := range cases {
-		if got := parseDatabaseID(input); got != want {
-			t.Fatalf("parseDatabaseID(%q) = %q, want %q", input, got, want)
+	for _, tc := range cases {
+		if got := parseDatabaseID(tc.input); got != tc.want {
+			t.Fatalf("parseDatabaseID(%q) = %q, want %q", tc.input, got, tc.want)
 		}
 	}
 

@@ -2,6 +2,7 @@ package tracking
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -23,11 +24,19 @@ type DeployOptions struct {
 	AdminKey     string
 }
 
+var (
+	errWranglerNotFound      = errors.New("wrangler not found in PATH")
+	errWorkerConfigMissing   = errors.New("worker dir missing wrangler.toml")
+	errParseDatabaseIDInfo   = errors.New("failed to parse database_id from wrangler d1 info output")
+	errParseDatabaseIDCreate = errors.New("failed to parse database_id from wrangler d1 create output")
+)
+
 func DefaultWorkerName(account string) string {
 	sanitized := SanitizeWorkerName(account)
 	if sanitized == "" {
 		return "gog-email-tracker"
 	}
+
 	return "gog-email-tracker-" + sanitized
 }
 
@@ -36,26 +45,30 @@ func SanitizeWorkerName(name string) string {
 	if name == "" {
 		return ""
 	}
+
 	re := regexp.MustCompile(`[^a-z0-9-]+`)
 	name = re.ReplaceAllString(name, "-")
 	name = strings.Trim(name, "-")
+
 	for strings.Contains(name, "--") {
 		name = strings.ReplaceAll(name, "--", "-")
 	}
+
 	if len(name) > 63 {
 		name = strings.Trim(name[:63], "-")
 	}
+
 	return name
 }
 
 func DeployWorker(ctx context.Context, logger DeployLogger, opts DeployOptions) (string, error) {
 	if _, err := exec.LookPath("wrangler"); err != nil {
-		return "", fmt.Errorf("wrangler not found in PATH")
+		return "", errWranglerNotFound
 	}
 
 	workerDir := filepath.Clean(opts.WorkerDir)
 	if _, err := os.Stat(filepath.Join(workerDir, "wrangler.toml")); err != nil {
-		return "", fmt.Errorf("worker dir missing wrangler.toml: %s", workerDir)
+		return "", fmt.Errorf("%w: %s", errWorkerConfigMissing, workerDir)
 	}
 
 	if logger != nil {
@@ -103,17 +116,20 @@ func ensureD1Database(ctx context.Context, workerDir, dbName string) (string, er
 		if infoErr != nil {
 			return "", err
 		}
+
 		id := parseDatabaseID(outInfo)
 		if id == "" {
-			return "", fmt.Errorf("failed to parse database_id from wrangler d1 info output")
+			return "", errParseDatabaseIDInfo
 		}
+
 		return id, nil
 	}
 
 	id := parseDatabaseID(out)
 	if id == "" {
-		return "", fmt.Errorf("failed to parse database_id from wrangler d1 create output")
+		return "", errParseDatabaseIDCreate
 	}
+
 	return id, nil
 }
 
@@ -128,6 +144,7 @@ func parseDatabaseID(out string) string {
 			return match[1]
 		}
 	}
+
 	return ""
 }
 
@@ -164,6 +181,7 @@ func replaceTomlString(content, key, value string) string {
 
 func runWranglerCommand(ctx context.Context, dir string, stdin io.Reader, args ...string) error {
 	_, err := runWranglerCommandOutput(ctx, dir, stdin, args...)
+
 	return err
 }
 
@@ -171,10 +189,12 @@ func runWranglerCommandOutput(ctx context.Context, dir string, stdin io.Reader, 
 	cmd := exec.CommandContext(ctx, "wrangler", args...)
 	cmd.Dir = dir
 	cmd.Stdin = stdin
+
 	cmd.Env = append(os.Environ(), "WRANGLER_SEND_METRICS=false")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(out), fmt.Errorf("wrangler %s failed: %w\n%s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 	}
+
 	return string(out), nil
 }

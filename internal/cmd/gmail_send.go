@@ -215,8 +215,7 @@ func buildSendBatches(toRecipients, ccRecipients, bccRecipients []string, track,
 		return batches
 	}
 
-	trackingRecipient := ""
-	trackingRecipient = firstRecipient(toRecipients, ccRecipients, bccRecipients)
+	trackingRecipient := firstRecipient(toRecipients, ccRecipients, bccRecipients)
 	return []sendBatch{{
 		To:                toRecipients,
 		Cc:                ccRecipients,
