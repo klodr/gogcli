@@ -34,7 +34,7 @@ type CLI struct {
 
 	Auth       AuthCmd       `cmd:"" help:"Auth and credentials"`
 	Drive      DriveCmd      `cmd:"" help:"Google Drive"`
-	Docs       DocsCmd       `cmd:"" help:"Google Docs (export via Drive)"`
+	Docs       DocsCmd       `cmd:"" help:"Google Docs (Docs API + Drive export)"`
 	Slides     SlidesCmd     `cmd:"" help:"Google Slides"`
 	Calendar   CalendarCmd   `cmd:"" help:"Google Calendar"`
 	Gmail      GmailCmd      `cmd:"" aliases:"mail,email" help:"Gmail"`

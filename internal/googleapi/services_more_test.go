@@ -36,6 +36,10 @@ func TestNewServices_HappyPath(t *testing.T) {
 		t.Fatalf("NewDrive: %v", err)
 	}
 
+	if svc, err := NewDocs(ctx, "a@b.com"); err != nil || svc == nil {
+		t.Fatalf("NewDocs: %v", err)
+	}
+
 	if svc, err := NewCalendar(ctx, "a@b.com"); err != nil || svc == nil {
 		t.Fatalf("NewCalendar: %v", err)
 	}

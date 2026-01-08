@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/api/docs/v1"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
 
@@ -19,9 +20,11 @@ import (
 
 func TestDocsCreateCopyCat_JSON(t *testing.T) {
 	origNew := newDriveService
+	origDocs := newDocsService
 	origExport := driveExportDownload
 	t.Cleanup(func() {
 		newDriveService = origNew
+		newDocsService = origDocs
 		driveExportDownload = origExport
 	})
 
@@ -33,16 +36,40 @@ func TestDocsCreateCopyCat_JSON(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.Path, "/drive/v3")
+		path := r.URL.Path
+		drivePath := strings.TrimPrefix(path, "/drive/v3")
 		switch {
-		case strings.HasPrefix(path, "/files/") && r.Method == http.MethodGet:
+		case strings.HasPrefix(path, "/v1/documents/") && r.Method == http.MethodGet:
+			id := strings.TrimPrefix(path, "/v1/documents/")
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"documentId": id,
+				"title":      "Doc",
+				"body": map[string]any{
+					"content": []any{
+						map[string]any{
+							"paragraph": map[string]any{
+								"elements": []any{
+									map[string]any{
+										"textRun": map[string]any{
+											"content": "doc text",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+			return
+		case strings.HasPrefix(drivePath, "/files/") && r.Method == http.MethodGet:
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"id":       "doc1",
 				"mimeType": "application/vnd.google-apps.document",
 			})
 			return
-		case path == "/files" && r.Method == http.MethodPost:
+		case drivePath == "/files" && r.Method == http.MethodPost:
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"id":          "doc1",
@@ -51,7 +78,7 @@ func TestDocsCreateCopyCat_JSON(t *testing.T) {
 				"webViewLink": "http://example.com/doc1",
 			})
 			return
-		case strings.Contains(path, "/files/doc1/copy") && r.Method == http.MethodPost:
+		case strings.Contains(drivePath, "/files/doc1/copy") && r.Method == http.MethodPost:
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"id":          "doc2",
@@ -76,6 +103,16 @@ func TestDocsCreateCopyCat_JSON(t *testing.T) {
 		t.Fatalf("NewService: %v", err)
 	}
 	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
+
+	docSvc, err := docs.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewDocsService: %v", err)
+	}
+	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
 	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
@@ -112,9 +149,11 @@ func TestDocsCreateCopyCat_JSON(t *testing.T) {
 
 func TestDocsCreateCopyCat_Text(t *testing.T) {
 	origNew := newDriveService
+	origDocs := newDocsService
 	origExport := driveExportDownload
 	t.Cleanup(func() {
 		newDriveService = origNew
+		newDocsService = origDocs
 		driveExportDownload = origExport
 	})
 
@@ -126,16 +165,40 @@ func TestDocsCreateCopyCat_Text(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.Path, "/drive/v3")
+		path := r.URL.Path
+		drivePath := strings.TrimPrefix(path, "/drive/v3")
 		switch {
-		case strings.HasPrefix(path, "/files/") && r.Method == http.MethodGet:
+		case strings.HasPrefix(path, "/v1/documents/") && r.Method == http.MethodGet:
+			id := strings.TrimPrefix(path, "/v1/documents/")
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"documentId": id,
+				"title":      "Doc",
+				"body": map[string]any{
+					"content": []any{
+						map[string]any{
+							"paragraph": map[string]any{
+								"elements": []any{
+									map[string]any{
+										"textRun": map[string]any{
+											"content": "doc text",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+			return
+		case strings.HasPrefix(drivePath, "/files/") && r.Method == http.MethodGet:
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"id":       "doc1",
 				"mimeType": "application/vnd.google-apps.document",
 			})
 			return
-		case path == "/files" && r.Method == http.MethodPost:
+		case drivePath == "/files" && r.Method == http.MethodPost:
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"id":          "doc1",
@@ -144,7 +207,7 @@ func TestDocsCreateCopyCat_Text(t *testing.T) {
 				"webViewLink": "http://example.com/doc1",
 			})
 			return
-		case strings.Contains(path, "/files/doc1/copy") && r.Method == http.MethodPost:
+		case strings.Contains(drivePath, "/files/doc1/copy") && r.Method == http.MethodPost:
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"id":          "doc2",
@@ -169,6 +232,16 @@ func TestDocsCreateCopyCat_Text(t *testing.T) {
 		t.Fatalf("NewService: %v", err)
 	}
 	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
+
+	docSvc, err := docs.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewDocsService: %v", err)
+	}
+	newDocsService = func(context.Context, string) (*docs.Service, error) { return docSvc, nil }
 
 	flags := &RootFlags{Account: "a@b.com"}
 

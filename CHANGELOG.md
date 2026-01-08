@@ -23,6 +23,7 @@
 - Auth: allow `docs` in `gog auth add --services` (#33) — thanks @mbelinky.
 - Auth: `docs` now requests both Drive and Docs scopes.
 - Auth: `gog auth manage` stores tokens under the real account email (Google userinfo) (#36) — thanks @salmonumbrella.
+- Docs: `docs info`/`docs cat` now use the Docs API (Drive still used for exports/copy/create).
 
 ## 0.4.2 - 2025-12-31
 
