@@ -156,6 +156,68 @@ func TestExecute_GmailGet_Raw_JSON(t *testing.T) {
 	}
 }
 
+func TestExecute_GmailGet_Full_JSON_Body(t *testing.T) {
+	origNew := newGmailService
+	t.Cleanup(func() { newGmailService = origNew })
+
+	plain := base64.RawURLEncoding.EncodeToString([]byte("plain body"))
+	html := base64.RawURLEncoding.EncodeToString([]byte("<p>html body</p>"))
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/gmail/v1/users/me/messages/m1") {
+			http.NotFound(w, r)
+			return
+		}
+		if got := r.URL.Query().Get("format"); got != "full" {
+			t.Fatalf("format=%q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "m1",
+			"payload": map[string]any{
+				"mimeType": "multipart/alternative",
+				"parts": []map[string]any{
+					{"mimeType": "text/html", "body": map[string]any{"data": html}},
+					{"mimeType": "text/plain; charset=utf-8", "body": map[string]any{"data": plain}},
+				},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	svc, err := gmail.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{
+				"--json",
+				"--account", "a@b.com",
+				"gmail", "get", "m1",
+			}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+
+	var parsed struct {
+		Body string `json:"body"`
+	}
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("json parse: %v\nout=%q", err, out)
+	}
+	if parsed.Body != "plain body" {
+		t.Fatalf("unexpected body: %q", parsed.Body)
+	}
+}
+
 func TestExecute_GmailGet_InvalidFormat(t *testing.T) {
 	_ = captureStderr(t, func() {
 		err := Execute([]string{
