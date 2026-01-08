@@ -29,10 +29,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "pnpm"
-          cache-dependency-path: internal/tracking/worker/pnpm-lock.yaml
       - name: Enable Corepack (pnpm)
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.27.0 --activate
       - name: Install dependencies
         run: pnpm -C internal/tracking/worker install --frozen-lockfile
       - name: Lint
