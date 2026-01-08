@@ -52,7 +52,7 @@ type sendMessageOptions struct {
 	Subject     string
 	Body        string
 	BodyHTML    string
-	ReplyInfo   replyInfo
+	ReplyInfo   *replyInfo
 	Attachments []mailAttachment
 	Track       bool
 	TrackingCfg *tracking.Config
@@ -229,6 +229,11 @@ func buildSendBatches(toRecipients, ccRecipients, bccRecipients []string, track,
 }
 
 func sendGmailBatches(ctx context.Context, svc *gmail.Service, opts sendMessageOptions, batches []sendBatch) ([]sendResult, error) {
+	reply := replyInfo{}
+	if opts.ReplyInfo != nil {
+		reply = *opts.ReplyInfo
+	}
+
 	results := make([]sendResult, 0, len(batches))
 	for _, batch := range batches {
 		htmlBody := opts.BodyHTML
@@ -258,8 +263,8 @@ func sendGmailBatches(ctx context.Context, svc *gmail.Service, opts sendMessageO
 			Subject:     opts.Subject,
 			Body:        opts.Body,
 			BodyHTML:    htmlBody,
-			InReplyTo:   opts.ReplyInfo.InReplyTo,
-			References:  opts.ReplyInfo.References,
+			InReplyTo:   reply.InReplyTo,
+			References:  reply.References,
 			Attachments: opts.Attachments,
 		})
 		if err != nil {
@@ -269,8 +274,8 @@ func sendGmailBatches(ctx context.Context, svc *gmail.Service, opts sendMessageO
 		msg := &gmail.Message{
 			Raw: base64.RawURLEncoding.EncodeToString(raw),
 		}
-		if opts.ReplyInfo.ThreadID != "" {
-			msg.ThreadId = opts.ReplyInfo.ThreadID
+		if reply.ThreadID != "" {
+			msg.ThreadId = reply.ThreadID
 		}
 
 		sent, err := svc.Users.Messages.Send("me", msg).Context(ctx).Do()
