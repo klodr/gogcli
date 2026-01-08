@@ -51,17 +51,16 @@ func TestReadConfig_JSON5(t *testing.T) {
 		t.Fatalf("ConfigPath: %v", err)
 	}
 
-	if mkdirErr := os.MkdirAll(filepath.Dir(path), 0o700); mkdirErr != nil {
-		t.Fatalf("mkdir: %v", mkdirErr)
+	if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
-
 	data := `{
   // allow comments + trailing commas
   keyring_backend: "file",
 }`
 
-	if writeErr := os.WriteFile(path, []byte(data), 0o600); writeErr != nil {
-		t.Fatalf("write config: %v", writeErr)
+	if err = os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
 	}
 
 	cfg, err := ReadConfig()

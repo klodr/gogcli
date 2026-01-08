@@ -5,6 +5,7 @@
 - Config: add JSON5 `config.json` (comments ok) and `gog auth status`/help now show keyring backend + config path.
 - CLI: help now defaults to grouped output (no expanded subcommands); use `GOG_HELP=full gog --help` for full expansion.
 - CLI: help shows build version + git SHA and adds colored headings/command names (respects `NO_COLOR` and `--color`).
+- CLI: accept `--output` alias for `--out` and `--output-dir` for Gmail attachment downloads (#47) — thanks @salmonumbrella.
 - Auth: `gog auth list --check` validates refresh tokens by exchanging for an access token.
 - Auth: OAuth browser flow now finishes immediately after callback (no 30s “stuck” delay).
 - Homebrew: tap now installs GitHub release binaries (macOS) to reduce Keychain prompt churn.

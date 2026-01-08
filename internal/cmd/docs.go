@@ -31,7 +31,7 @@ type DocsCmd struct {
 
 type DocsExportCmd struct {
 	DocID  string `arg:"" name:"docId" help:"Doc ID"`
-	Out    string `name:"out" help:"Output file path (default: gogcli config dir)"`
+	Out    string `name:"out" aliases:"output" help:"Output file path (default: gogcli config dir)"`
 	Format string `name:"format" help:"Export format: pdf|docx|txt" default:"pdf"`
 }
 

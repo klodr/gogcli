@@ -11,7 +11,6 @@ import (
 
 	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/errfmt"
-	"github.com/steipete/gogcli/internal/googleauth"
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/secrets"
 	"github.com/steipete/gogcli/internal/ui"
@@ -19,7 +18,7 @@ import (
 
 type RootFlags struct {
 	Color   string `help:"Color output: auto|always|never" default:"${color}"`
-	Account string `help:"Account email for API commands (gmail/calendar/drive/docs/slides/contacts/tasks/people/sheets/keep)"`
+	Account string `help:"Account email for API commands (gmail/calendar/drive/docs/slides/contacts/tasks/people/sheets)"`
 	JSON    bool   `help:"Output JSON to stdout (best for scripting)" default:"${json}"`
 	Plain   bool   `help:"Output stable, parseable text to stdout (TSV; no colors)" default:"${plain}"`
 	Force   bool   `help:"Skip confirmations for destructive commands"`
@@ -34,7 +33,7 @@ type CLI struct {
 
 	Auth       AuthCmd       `cmd:"" help:"Auth and credentials"`
 	Drive      DriveCmd      `cmd:"" help:"Google Drive"`
-	Docs       DocsCmd       `cmd:"" help:"Google Docs (Docs API + Drive export)"`
+	Docs       DocsCmd       `cmd:"" help:"Google Docs (export via Drive)"`
 	Slides     SlidesCmd     `cmd:"" help:"Google Slides"`
 	Calendar   CalendarCmd   `cmd:"" help:"Google Calendar"`
 	Gmail      GmailCmd      `cmd:"" aliases:"mail,email" help:"Gmail"`
@@ -42,8 +41,6 @@ type CLI struct {
 	Tasks      TasksCmd      `cmd:"" help:"Google Tasks"`
 	People     PeopleCmd     `cmd:"" help:"Google People"`
 	Sheets     SheetsCmd     `cmd:"" help:"Google Sheets"`
-	Keep       KeepCmd       `cmd:"" help:"Google Keep (Workspace only)"`
-	Groups     GroupsCmd     `cmd:"" help:"Google Groups (Cloud Identity)"`
 	VersionCmd VersionCmd    `cmd:"" name:"version" help:"Print version"`
 	Completion CompletionCmd `cmd:"" help:"Generate shell completion scripts"`
 }
@@ -52,13 +49,11 @@ type exitPanic struct{ code int }
 
 func Execute(args []string) (err error) {
 	envMode := outfmt.FromEnv()
-	expandHelp := os.Getenv("GOG_HELP") == "full" || os.Getenv("GOG_HELP_EXPAND") == "1"
 	vars := kong.Vars{
-		"color":         envOr("GOG_COLOR", "auto"),
-		"auth_services": googleauth.UserServiceCSV(),
-		"json":          boolString(envMode.JSON),
-		"plain":         boolString(envMode.Plain),
-		"version":       VersionString(),
+		"color":   envOr("GOG_COLOR", "auto"),
+		"json":    boolString(envMode.JSON),
+		"plain":   boolString(envMode.Plain),
+		"version": VersionString(),
 	}
 
 	cli := &CLI{}
@@ -67,10 +62,6 @@ func Execute(args []string) (err error) {
 		kong.Name("gog"),
 		kong.Description(helpDescription()),
 		kong.Vars(vars),
-		kong.ConfigureHelp(kong.HelpOptions{
-			NoExpandSubcommands: !expandHelp,
-		}),
-		kong.Help(helpPrinter),
 		kong.Writers(os.Stdout, os.Stderr),
 		kong.Exit(func(code int) { panic(exitPanic{code: code}) }),
 	)
@@ -172,7 +163,7 @@ func boolString(v bool) string {
 }
 
 func helpDescription() string {
-	desc := "Google CLI for Gmail/Calendar/Drive/Contacts/Tasks/Sheets/Docs/Slides/People/Keep"
+	desc := "Google CLI for Gmail/Calendar/Drive/Contacts/Tasks/Sheets/Docs/Slides/People"
 
 	configPath, err := config.ConfigPath()
 	configLine := "unknown"
@@ -182,14 +173,14 @@ func helpDescription() string {
 		configLine = configPath
 	}
 
-	var backendLine string
 	backendInfo, err := secrets.ResolveKeyringBackendInfo()
+	var backendLine string
 	if err != nil {
 		backendLine = fmt.Sprintf("error: %v", err)
-		return fmt.Sprintf("%s\n\nConfig:\n  file: %s\n  keyring backend: %s", desc, configLine, backendLine)
+	} else {
+		backendLine = fmt.Sprintf("%s (source: %s)", backendInfo.Value, backendInfo.Source)
 	}
 
-	backendLine = fmt.Sprintf("%s (source: %s)", backendInfo.Value, backendInfo.Source)
 	return fmt.Sprintf("%s\n\nConfig:\n  file: %s\n  keyring backend: %s", desc, configLine, backendLine)
 }
 
