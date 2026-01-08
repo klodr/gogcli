@@ -150,9 +150,12 @@ func (c *GmailSendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		atts = append(atts, mailAttachment{Path: p})
 	}
 
-	trackingCfg, err := c.resolveTrackingConfig(account, toRecipients, ccRecipients, bccRecipients)
-	if err != nil {
-		return err
+	var trackingCfg *tracking.Config
+	if c.Track {
+		trackingCfg, err = c.resolveTrackingConfig(account, toRecipients, ccRecipients, bccRecipients)
+		if err != nil {
+			return err
+		}
 	}
 
 	batches := buildSendBatches(toRecipients, ccRecipients, bccRecipients, c.Track, c.TrackSplit)
@@ -175,10 +178,6 @@ func (c *GmailSendCmd) Run(ctx context.Context, flags *RootFlags) error {
 }
 
 func (c *GmailSendCmd) resolveTrackingConfig(account string, toRecipients, ccRecipients, bccRecipients []string) (*tracking.Config, error) {
-	if !c.Track {
-		return nil, nil
-	}
-
 	totalRecipients := len(toRecipients) + len(ccRecipients) + len(bccRecipients)
 	if totalRecipients != 1 && !c.TrackSplit {
 		return nil, usage("--track requires exactly 1 recipient (no cc/bcc); use --track-split for per-recipient sends")
