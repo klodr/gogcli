@@ -105,7 +105,7 @@ func TestResolveKeyringBackendInfo_EnvNormalizesWhitespaceAndCase(t *testing.T) 
 	}
 }
 
-func TestAllowedBackends_NormalizesAndValidates(t *testing.T) {
+func TestAllowedBackends_ValidatesValues(t *testing.T) {
 	tests := []struct {
 		name    string
 		value   string
@@ -117,8 +117,8 @@ func TestAllowedBackends_NormalizesAndValidates(t *testing.T) {
 		{"keychain returns one backend", "keychain", 1, false},
 		{"file returns one backend", "file", 1, false},
 		{"invalid returns error", "invalid", 0, true},
-		{"whitespace trimmed", "  keychain  ", 1, false},
-		{"case insensitive", "KEYCHAIN", 1, false},
+		{"whitespace rejected", "  keychain  ", 0, true},
+		{"case sensitive", "KEYCHAIN", 0, true},
 	}
 
 	for _, tt := range tests {

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 )
@@ -58,8 +57,6 @@ func ReadConfig() (File, error) {
 	if err := json5.Unmarshal(b, &cfg); err != nil {
 		return File{}, fmt.Errorf("parse config %s: %w", path, err)
 	}
-
-	cfg.KeyringBackend = strings.ToLower(strings.TrimSpace(cfg.KeyringBackend))
 
 	return cfg, nil
 }

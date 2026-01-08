@@ -82,8 +82,7 @@ func ResolveKeyringBackendInfo() (KeyringBackendInfo, error) {
 }
 
 func allowedBackends(info KeyringBackendInfo) ([]keyring.BackendType, error) {
-	value := normalizeKeyringBackend(info.Value)
-	switch value {
+	switch info.Value {
 	case "", "auto":
 		return nil, nil
 	case "keychain":
@@ -91,7 +90,7 @@ func allowedBackends(info KeyringBackendInfo) ([]keyring.BackendType, error) {
 	case "file":
 		return []keyring.BackendType{keyring.FileBackend}, nil
 	default:
-		return nil, fmt.Errorf("%w: %q (expected auto, keychain, or file)", errInvalidKeyringBackend, value)
+		return nil, fmt.Errorf("%w: %q (expected auto, keychain, or file)", errInvalidKeyringBackend, info.Value)
 	}
 }
 
