@@ -120,6 +120,56 @@ func TestServiceOrderCoverage(t *testing.T) {
 	}
 }
 
+func TestServicesInfo_Metadata(t *testing.T) {
+	infos := ServicesInfo()
+	if len(infos) != len(serviceOrder) {
+		t.Fatalf("unexpected services info length: %d", len(infos))
+	}
+
+	docsInfo, foundDocs := findServiceInfo(infos, ServiceDocs)
+
+	if !foundDocs {
+		t.Fatalf("missing docs info")
+	}
+
+	if len(docsInfo.APIs) == 0 {
+		t.Fatalf("docs APIs missing")
+	}
+
+	for _, want := range []string{
+		"https://www.googleapis.com/auth/drive",
+		"https://www.googleapis.com/auth/documents",
+	} {
+		if !containsScope(docsInfo.Scopes, want) {
+			t.Fatalf("docs missing scope %q", want)
+		}
+	}
+
+	if markdown := ServicesMarkdown(infos); markdown == "" {
+		t.Fatalf("expected markdown output")
+	}
+}
+
+func findServiceInfo(infos []ServiceInfo, svc Service) (ServiceInfo, bool) {
+	for _, info := range infos {
+		if info.Service == svc {
+			return info, true
+		}
+	}
+
+	return ServiceInfo{}, false
+}
+
+func containsScope(scopes []string, want string) bool {
+	for _, scope := range scopes {
+		if scope == want {
+			return true
+		}
+	}
+
+	return false
+}
+
 func TestScopesForServices_UnionSorted(t *testing.T) {
 	scopes, err := ScopesForServices([]Service{ServiceContacts, ServiceGmail, ServiceTasks, ServicePeople, ServiceContacts})
 	if err != nil {

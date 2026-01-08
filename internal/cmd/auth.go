@@ -29,6 +29,7 @@ var (
 type AuthCmd struct {
 	Credentials AuthCredentialsCmd `cmd:"" name:"credentials" help:"Store OAuth client credentials"`
 	Add         AuthAddCmd         `cmd:"" name:"add" help:"Authorize and store a refresh token"`
+	Services    AuthServicesCmd    `cmd:"" name:"services" help:"List supported auth services and scopes"`
 	List        AuthListCmd        `cmd:"" name:"list" help:"List stored accounts"`
 	Status      AuthStatusCmd      `cmd:"" name:"status" help:"Show auth configuration and keyring backend"`
 	Remove      AuthRemoveCmd      `cmd:"" name:"remove" help:"Remove a stored refresh token"`
@@ -471,6 +472,38 @@ func (c *AuthListCmd) Run(ctx context.Context) error {
 			continue
 		}
 		u.Out().Printf("%s\t%s\t%s", t.Email, strings.Join(t.Services, ","), created)
+	}
+	return nil
+}
+
+type AuthServicesCmd struct {
+	Markdown bool `name:"markdown" help:"Output Markdown table"`
+}
+
+func (c *AuthServicesCmd) Run(ctx context.Context) error {
+	infos := googleauth.ServicesInfo()
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, map[string]any{"services": infos})
+	}
+	if c.Markdown {
+		_, err := io.WriteString(os.Stdout, googleauth.ServicesMarkdown(infos))
+		return err
+	}
+
+	w, done := tableWriter(ctx)
+	defer done()
+
+	_, _ = fmt.Fprintln(w, "SERVICE\tUSER\tAPIS\tSCOPES\tNOTE")
+	for _, info := range infos {
+		_, _ = fmt.Fprintf(
+			w,
+			"%s\t%t\t%s\t%s\t%s\n",
+			info.Service,
+			info.User,
+			strings.Join(info.APIs, ", "),
+			strings.Join(info.Scopes, ", "),
+			info.Note,
+		)
 	}
 	return nil
 }

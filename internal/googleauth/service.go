@@ -26,6 +26,8 @@ var errUnknownService = errors.New("unknown service")
 type serviceInfo struct {
 	scopes []string
 	user   bool
+	apis   []string
+	note   string
 }
 
 var serviceOrder = []Service{
@@ -44,14 +46,17 @@ var serviceInfoByService = map[Service]serviceInfo{
 	ServiceGmail: {
 		scopes: []string{"https://mail.google.com/"},
 		user:   true,
+		apis:   []string{"Gmail API"},
 	},
 	ServiceCalendar: {
 		scopes: []string{"https://www.googleapis.com/auth/calendar"},
 		user:   true,
+		apis:   []string{"Calendar API"},
 	},
 	ServiceDrive: {
 		scopes: []string{"https://www.googleapis.com/auth/drive"},
 		user:   true,
+		apis:   []string{"Drive API"},
 	},
 	ServiceDocs: {
 		// Docs commands are implemented via Drive APIs (export/copy/create),
@@ -61,6 +66,8 @@ var serviceInfoByService = map[Service]serviceInfo{
 			"https://www.googleapis.com/auth/documents",
 		},
 		user: true,
+		apis: []string{"Docs API", "Drive API"},
+		note: "Export/copy/create via Drive",
 	},
 	ServiceContacts: {
 		scopes: []string{
@@ -69,23 +76,32 @@ var serviceInfoByService = map[Service]serviceInfo{
 			"https://www.googleapis.com/auth/directory.readonly",
 		},
 		user: true,
+		apis: []string{"People API"},
+		note: "Contacts + other contacts + directory",
 	},
 	ServiceTasks: {
 		scopes: []string{"https://www.googleapis.com/auth/tasks"},
 		user:   true,
+		apis:   []string{"Tasks API"},
 	},
 	ServicePeople: {
 		// Needed for "people/me" requests.
 		scopes: []string{"profile"},
 		user:   true,
+		apis:   []string{"People API"},
+		note:   "OIDC profile scope",
 	},
 	ServiceSheets: {
 		scopes: []string{"https://www.googleapis.com/auth/spreadsheets"},
 		user:   true,
+		apis:   []string{"Sheets API", "Drive API"},
+		note:   "Export via Drive",
 	},
 	ServiceKeep: {
 		scopes: []string{"https://www.googleapis.com/auth/keep"},
 		user:   false,
+		apis:   []string{"Keep API"},
+		note:   "Workspace only; service account",
 	},
 }
 
@@ -117,6 +133,77 @@ func Scopes(service Service) ([]string, error) {
 	}
 
 	return append([]string(nil), info.scopes...), nil
+}
+
+type ServiceInfo struct {
+	Service Service  `json:"service"`
+	User    bool     `json:"user"`
+	Scopes  []string `json:"scopes"`
+	APIs    []string `json:"apis,omitempty"`
+	Note    string   `json:"note,omitempty"`
+}
+
+func ServicesInfo() []ServiceInfo {
+	out := make([]ServiceInfo, 0, len(serviceOrder))
+	for _, svc := range serviceOrder {
+		info, ok := serviceInfoByService[svc]
+		if !ok {
+			continue
+		}
+
+		out = append(out, ServiceInfo{
+			Service: svc,
+			User:    info.user,
+			Scopes:  append([]string(nil), info.scopes...),
+			APIs:    append([]string(nil), info.apis...),
+			Note:    info.note,
+		})
+	}
+
+	return out
+}
+
+func ServicesMarkdown(infos []ServiceInfo) string {
+	if len(infos) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("| Service | User | APIs | Scopes | Notes |\n")
+	b.WriteString("| --- | --- | --- | --- | --- |\n")
+
+	for _, info := range infos {
+		userLabel := "no"
+		if info.User {
+			userLabel = "yes"
+		}
+
+		b.WriteString("| ")
+		b.WriteString(string(info.Service))
+		b.WriteString(" | ")
+		b.WriteString(userLabel)
+		b.WriteString(" | ")
+		b.WriteString(strings.Join(info.APIs, ", "))
+		b.WriteString(" | ")
+		b.WriteString(markdownScopes(info.Scopes))
+		b.WriteString(" | ")
+		b.WriteString(info.Note)
+		b.WriteString(" |\n")
+	}
+
+	return b.String()
+}
+
+func markdownScopes(scopes []string) string {
+	if len(scopes) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(scopes))
+
+	for _, scope := range scopes {
+		parts = append(parts, "`"+scope+"`")
+	}
+
+	return strings.Join(parts, "<br>")
 }
 
 func ScopesForServices(services []Service) ([]string, error) {

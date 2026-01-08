@@ -131,6 +131,7 @@ Environment:
 
 - `gog auth credentials <credentials.json|->`
 - `gog auth add <email> [--services user|all|gmail,calendar,drive,docs,contacts,tasks,sheets,people] [--manual] [--force-consent]`
+- `gog auth services [--markdown]`
 - `gog auth keep <email> --key <service-account.json>` (Google Keep; Workspace only)
 - `gog auth list`
 - `gog auth status`

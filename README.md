@@ -123,7 +123,7 @@ gog auth list
 
 ### Service Scopes
 
-By default, `gog auth add` requests access to the **user** services (gmail, calendar, drive, docs, contacts, tasks, sheets, people).
+By default, `gog auth add` requests access to the **user** services (see `gog auth services` for the current list and scopes).
 
 To request fewer scopes:
 
@@ -142,6 +142,12 @@ gog auth add you@gmail.com --services sheets --force-consent
 `--services all` is accepted as an alias for `user` for backwards compatibility.
 
 Docs commands are implemented via the Drive API, and `docs` requests both Drive and Docs API scopes.
+
+To render a Markdown table of services and scopes:
+
+```bash
+gog auth services --markdown
+```
 
 ### Google Keep (Workspace only)
 
