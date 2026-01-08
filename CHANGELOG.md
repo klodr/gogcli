@@ -17,6 +17,7 @@
 - Calendar: `gog calendar update --add-attendee ...` adds attendees without replacing existing RSVP state (#24) — thanks @salmonumbrella.
 - Gmail: `gog gmail thread attachments` list/download attachments (#27) — thanks @salmonumbrella.
 - Gmail: `gog gmail thread get --full` shows complete bodies (default truncates) (#25) — thanks @salmonumbrella.
+- Gmail: email open tracking (`gog gmail send --track`, `gog gmail track ...`) via Cloudflare Worker backend (#38) — thanks @salmonumbrella.
 - Gmail: surface List-Unsubscribe links in `gog gmail get`/`thread get` output (#39) — thanks @jverdi.
 - Gmail: reorganize `gog gmail --help` into sections and add `gog gmail settings ...` (old subcommands remain available).
 - Keep: add Workspace-only Google Keep support (service account + domain-wide delegation) (#32) — thanks @koala73.
@@ -25,6 +26,7 @@
 - Auth: `docs` now requests both Drive and Docs scopes.
 - Auth: `gog auth manage` stores tokens under the real account email (Google userinfo) (#36) — thanks @salmonumbrella.
 - Docs: `docs info`/`docs cat` now use the Docs API (Drive still used for exports/copy/create).
+- Calendar: feature-parity flags + new event types (focus-time/ooo/working-location) and recurring scope updates (#38) — thanks @salmonumbrella.
 
 ## 0.4.2 - 2025-12-31
 

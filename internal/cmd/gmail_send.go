@@ -11,6 +11,7 @@ import (
 	"google.golang.org/api/gmail/v1"
 
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/tracking"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -27,6 +28,7 @@ type GmailSendCmd struct {
 	ReplyTo          string   `name:"reply-to" help:"Reply-To header address"`
 	Attach           []string `name:"attach" help:"Attachment file path (repeatable)"`
 	From             string   `name:"from" help:"Send from this email address (must be a verified send-as alias)"`
+	Track            bool     `name:"track" help:"Enable open tracking (requires tracking setup)"`
 }
 
 func (c *GmailSendCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -111,20 +113,55 @@ func (c *GmailSendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return usage("no recipients: specify --to or use --reply-all with a message that has recipients")
 	}
 
+	bccRecipients := splitCSV(c.Bcc)
+
 	atts := make([]mailAttachment, 0, len(c.Attach))
 	for _, p := range c.Attach {
 		atts = append(atts, mailAttachment{Path: p})
+	}
+
+	// Handle tracking
+	var trackingID string
+	htmlBody := c.BodyHTML
+	if c.Track {
+		totalRecipients := len(toRecipients) + len(ccRecipients) + len(bccRecipients)
+		if totalRecipients != 1 {
+			return usage("--track requires exactly 1 recipient (no cc/bcc)")
+		}
+
+		trackingCfg, cfgErr := tracking.LoadConfig()
+		if cfgErr != nil {
+			return fmt.Errorf("load tracking config: %w", cfgErr)
+		}
+		if !trackingCfg.IsConfigured() {
+			return fmt.Errorf("tracking not configured; run 'gog gmail track setup' first")
+		}
+		if strings.TrimSpace(htmlBody) == "" {
+			return fmt.Errorf("--track requires --body-html (pixel must be in HTML)")
+		}
+
+		// Use first resolved recipient for tracking
+		firstRecipient := toRecipients[0]
+		pixelURL, blob, pixelErr := tracking.GeneratePixelURL(trackingCfg, strings.TrimSpace(firstRecipient), c.Subject)
+		if pixelErr != nil {
+			return fmt.Errorf("generate tracking pixel: %w", pixelErr)
+		}
+		trackingID = blob
+
+		// Inject pixel into HTML body (prefer before </body> / </html>)
+		pixelHTML := tracking.GeneratePixelHTML(pixelURL)
+		htmlBody = injectTrackingPixelHTML(htmlBody, pixelHTML)
 	}
 
 	raw, err := buildRFC822(mailOptions{
 		From:        fromAddr,
 		To:          toRecipients,
 		Cc:          ccRecipients,
-		Bcc:         splitCSV(c.Bcc),
+		Bcc:         bccRecipients,
 		ReplyTo:     c.ReplyTo,
 		Subject:     c.Subject,
 		Body:        c.Body,
-		BodyHTML:    c.BodyHTML,
+		BodyHTML:    htmlBody,
 		InReplyTo:   replyInfo.InReplyTo,
 		References:  replyInfo.References,
 		Attachments: atts,
@@ -145,17 +182,35 @@ func (c *GmailSendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, map[string]any{
+		resp := map[string]any{
 			"messageId": sent.Id,
 			"threadId":  sent.ThreadId,
 			"from":      fromAddr,
-		})
+		}
+		if trackingID != "" {
+			resp["tracking_id"] = trackingID
+		}
+		return outfmt.WriteJSON(os.Stdout, resp)
 	}
 	u.Out().Printf("message_id\t%s", sent.Id)
 	if sent.ThreadId != "" {
 		u.Out().Printf("thread_id\t%s", sent.ThreadId)
 	}
+	if trackingID != "" {
+		u.Out().Printf("tracking_id\t%s", trackingID)
+	}
 	return nil
+}
+
+func injectTrackingPixelHTML(htmlBody, pixelHTML string) string {
+	lower := strings.ToLower(htmlBody)
+	if i := strings.LastIndex(lower, "</body>"); i != -1 {
+		return htmlBody[:i] + pixelHTML + htmlBody[i:]
+	}
+	if i := strings.LastIndex(lower, "</html>"); i != -1 {
+		return htmlBody[:i] + pixelHTML + htmlBody[i:]
+	}
+	return htmlBody + pixelHTML
 }
 
 // buildReplyAllRecipients constructs To and Cc lists for a reply-all.

@@ -317,6 +317,27 @@ Gmail watch (Pub/Sub push):
 - Create Pub/Sub topic + push subscription (OIDC preferred; shared token ok for dev).
 - Full flow + payload details: `docs/watch.md`.
 
+### Email Tracking
+
+Track when recipients open your emails:
+
+```bash
+# Set up local tracking config (generates keys; follow printed deploy steps)
+gog gmail track setup --worker-url https://gog-email-tracker.<acct>.workers.dev
+
+# Send with tracking
+gog gmail send --to recipient@example.com --subject "Hello" --body-html "<p>Hi!</p>" --track
+
+# Check opens
+gog gmail track opens <tracking_id>
+gog gmail track opens --to recipient@example.com
+
+# View status
+gog gmail track status
+```
+
+**Notes:** `--track` requires exactly 1 recipient (no cc/bcc) and an HTML body (`--body-html`). The tracking worker stores IP/user-agent + coarse geo by default.
+
 ### Calendar
 
 ```bash

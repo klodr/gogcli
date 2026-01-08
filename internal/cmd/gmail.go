@@ -31,6 +31,7 @@ type GmailCmd struct {
 	Batch  GmailBatchCmd  `cmd:"" name:"batch" group:"Organize" help:"Batch operations"`
 
 	Send   GmailSendCmd   `cmd:"" name:"send" group:"Write" help:"Send an email"`
+	Track  GmailTrackCmd  `cmd:"" name:"track" group:"Write" help:"Email open tracking"`
 	Drafts GmailDraftsCmd `cmd:"" name:"drafts" group:"Write" help:"Draft operations"`
 
 	Settings GmailSettingsCmd `cmd:"" name:"settings" group:"Admin" help:"Settings and admin"`

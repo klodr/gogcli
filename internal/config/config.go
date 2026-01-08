@@ -16,7 +16,7 @@ type File struct {
 func ConfigPath() (string, error) {
 	dir, err := Dir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("config dir: %w", err)
 	}
 
 	return filepath.Join(dir, "config.json"), nil
