@@ -12,12 +12,13 @@ import (
 // TimeRangeFlags provides common time range options for calendar commands.
 // Embed this struct in commands that need time range support.
 type TimeRangeFlags struct {
-	From     string `name:"from" help:"Start time (RFC3339, date, or relative: today, tomorrow, monday)"`
-	To       string `name:"to" help:"End time (RFC3339, date, or relative)"`
-	Today    bool   `name:"today" help:"Today only"`
-	Tomorrow bool   `name:"tomorrow" help:"Tomorrow only"`
-	Week     bool   `name:"week" help:"This week (Mon-Sun)"`
-	Days     int    `name:"days" help:"Next N days" default:"0"`
+	From      string `name:"from" help:"Start time (RFC3339, date, or relative: today, tomorrow, monday)"`
+	To        string `name:"to" help:"End time (RFC3339, date, or relative)"`
+	Today     bool   `name:"today" help:"Today only"`
+	Tomorrow  bool   `name:"tomorrow" help:"Tomorrow only"`
+	Week      bool   `name:"week" help:"This week (uses --week-start, default Mon)"`
+	Days      int    `name:"days" help:"Next N days" default:"0"`
+	WeekStart string `name:"week-start" help:"Week start day for --week (sun, mon, ...)" default:""`
 }
 
 // TimeRange represents a resolved time range with timezone.
@@ -50,6 +51,24 @@ func getUserTimezone(ctx context.Context, svc *calendar.Service) (*time.Location
 // ResolveTimeRange resolves the time range flags into absolute times.
 // If no flags are provided, defaults to "next 7 days" from now.
 func ResolveTimeRange(ctx context.Context, svc *calendar.Service, flags TimeRangeFlags) (*TimeRange, error) {
+	defaults := TimeRangeDefaults{
+		FromOffset:   0,
+		ToOffset:     7 * 24 * time.Hour,
+		ToFromOffset: 7 * 24 * time.Hour,
+	}
+	return ResolveTimeRangeWithDefaults(ctx, svc, flags, defaults)
+}
+
+// TimeRangeDefaults controls the default window when flags are missing.
+type TimeRangeDefaults struct {
+	FromOffset   time.Duration
+	ToOffset     time.Duration
+	ToFromOffset time.Duration
+}
+
+// ResolveTimeRangeWithDefaults resolves the time range flags into absolute times,
+// using provided defaults when --from/--to are not set.
+func ResolveTimeRangeWithDefaults(ctx context.Context, svc *calendar.Service, flags TimeRangeFlags, defaults TimeRangeDefaults) (*TimeRange, error) {
 	loc, err := getUserTimezone(ctx, svc)
 	if err != nil {
 		return nil, err
@@ -57,6 +76,11 @@ func ResolveTimeRange(ctx context.Context, svc *calendar.Service, flags TimeRang
 
 	now := time.Now().In(loc)
 	var from, to time.Time
+
+	weekStart, err := resolveWeekStart(flags.WeekStart)
+	if err != nil {
+		return nil, err
+	}
 
 	// Handle convenience flags first
 	switch {
@@ -68,8 +92,8 @@ func ResolveTimeRange(ctx context.Context, svc *calendar.Service, flags TimeRang
 		from = startOfDay(tomorrow)
 		to = endOfDay(tomorrow)
 	case flags.Week:
-		from = startOfWeek(now)
-		to = endOfWeek(now)
+		from = startOfWeek(now, weekStart)
+		to = endOfWeek(now, weekStart)
 	case flags.Days > 0:
 		from = startOfDay(now)
 		to = endOfDay(now.AddDate(0, 0, flags.Days-1))
@@ -81,17 +105,19 @@ func ResolveTimeRange(ctx context.Context, svc *calendar.Service, flags TimeRang
 				return nil, fmt.Errorf("invalid --from: %w", err)
 			}
 		} else {
-			from = now
+			from = now.Add(defaults.FromOffset)
 		}
 
-		if flags.To != "" {
+		switch {
+		case flags.To != "":
 			to, err = parseTimeExpr(flags.To, now, loc)
 			if err != nil {
 				return nil, fmt.Errorf("invalid --to: %w", err)
 			}
-		} else {
-			// Default: 7 days from "from"
-			to = from.AddDate(0, 0, 7)
+		case flags.From != "" && defaults.ToFromOffset != 0:
+			to = from.Add(defaults.ToFromOffset)
+		default:
+			to = now.Add(defaults.ToOffset)
 		}
 	}
 
@@ -203,26 +229,21 @@ func endOfDay(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999999999, t.Location())
 }
 
-// startOfWeek returns the start of the week (Monday 00:00:00) for the given time.
-func startOfWeek(t time.Time) time.Time {
+// startOfWeek returns the start of the week for the given time.
+func startOfWeek(t time.Time, weekStart time.Weekday) time.Time {
 	weekday := int(t.Weekday())
-	if weekday == 0 {
-		weekday = 7 // Sunday = 7 for ISO week
+	start := int(weekStart)
+	daysBack := weekday - start
+	if daysBack < 0 {
+		daysBack += 7
 	}
-	daysToMonday := weekday - 1
-	monday := t.AddDate(0, 0, -daysToMonday)
-	return startOfDay(monday)
+	return startOfDay(t.AddDate(0, 0, -daysBack))
 }
 
-// endOfWeek returns the end of the week (Sunday 23:59:59) for the given time.
-func endOfWeek(t time.Time) time.Time {
-	weekday := int(t.Weekday())
-	if weekday == 0 {
-		weekday = 7
-	}
-	daysToSunday := 7 - weekday
-	sunday := t.AddDate(0, 0, daysToSunday)
-	return endOfDay(sunday)
+// endOfWeek returns the end of the week for the given time.
+func endOfWeek(t time.Time, weekStart time.Weekday) time.Time {
+	start := startOfWeek(t, weekStart)
+	return endOfDay(start.AddDate(0, 0, 6))
 }
 
 // FormatRFC3339 formats a time as RFC3339 for API calls.
@@ -239,4 +260,35 @@ func (tr *TimeRange) FormatHuman() string {
 		return fromDate
 	}
 	return fmt.Sprintf("%s to %s", fromDate, toDate)
+}
+
+func resolveWeekStart(value string) (time.Weekday, error) {
+	if value == "" {
+		return time.Monday, nil
+	}
+	if wd, ok := parseWeekStart(value); ok {
+		return wd, nil
+	}
+	return time.Monday, fmt.Errorf("invalid --week-start %q (use sun, mon, ...)", value)
+}
+
+func parseWeekStart(value string) (time.Weekday, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "sun", "sunday":
+		return time.Sunday, true
+	case "mon", "monday":
+		return time.Monday, true
+	case "tue", "tues", "tuesday":
+		return time.Tuesday, true
+	case "wed", "wednesday":
+		return time.Wednesday, true
+	case "thu", "thur", "thurs", "thursday":
+		return time.Thursday, true
+	case "fri", "friday":
+		return time.Friday, true
+	case "sat", "saturday":
+		return time.Saturday, true
+	default:
+		return time.Monday, false
+	}
 }

@@ -132,8 +132,9 @@ type CalendarEventsCmd struct {
 	To                string `name:"to" help:"End time (RFC3339, date, or relative)"`
 	Today             bool   `name:"today" help:"Today only (timezone-aware)"`
 	Tomorrow          bool   `name:"tomorrow" help:"Tomorrow only (timezone-aware)"`
-	Week              bool   `name:"week" help:"This week Mon-Sun (timezone-aware)"`
+	Week              bool   `name:"week" help:"This week (uses --week-start, default Mon)"`
 	Days              int    `name:"days" help:"Next N days (timezone-aware)" default:"0"`
+	WeekStart         string `name:"week-start" help:"Week start day for --week (sun, mon, ...)" default:""`
 	Max               int64  `name:"max" aliases:"limit" help:"Max results" default:"10"`
 	Page              string `name:"page" help:"Page token"`
 	Query             string `name:"query" help:"Free text search"`
@@ -163,12 +164,13 @@ func (c *CalendarEventsCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	// Use timezone-aware time resolution
 	timeRange, err := ResolveTimeRange(ctx, svc, TimeRangeFlags{
-		From:     c.From,
-		To:       c.To,
-		Today:    c.Today,
-		Tomorrow: c.Tomorrow,
-		Week:     c.Week,
-		Days:     c.Days,
+		From:      c.From,
+		To:        c.To,
+		Today:     c.Today,
+		Tomorrow:  c.Tomorrow,
+		Week:      c.Week,
+		Days:      c.Days,
+		WeekStart: c.WeekStart,
 	})
 	if err != nil {
 		return err

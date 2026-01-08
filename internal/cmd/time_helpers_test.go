@@ -34,3 +34,14 @@ func TestParseTimeExpr_WeekdayNextWeek(t *testing.T) {
 		t.Fatalf("expected %s, got %s", want, got)
 	}
 }
+
+func TestStartOfWeek_WeekStartSunday(t *testing.T) {
+	loc := time.UTC
+	now := time.Date(2026, 1, 7, 12, 0, 0, 0, loc) // Wednesday
+
+	got := startOfWeek(now, time.Sunday)
+	want := time.Date(2026, 1, 4, 0, 0, 0, 0, loc) // Sunday
+	if !got.Equal(want) {
+		t.Fatalf("expected %s, got %s", want, got)
+	}
+}

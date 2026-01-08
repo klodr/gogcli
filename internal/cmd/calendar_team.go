@@ -26,13 +26,14 @@ type CalendarTeamCmd struct {
 
 // teamEvent represents a calendar event with owner information.
 type teamEvent struct {
-	Who     string `json:"who"`
-	ID      string `json:"id"`
-	Start   string `json:"start"`
-	End     string `json:"end"`
-	Summary string `json:"summary"`
-	Status  string `json:"status,omitempty"`
-	sortKey time.Time
+	Who       string `json:"who"`
+	ID        string `json:"id"`
+	Start     string `json:"start"`
+	End       string `json:"end"`
+	Summary   string `json:"summary"`
+	Status    string `json:"status,omitempty"`
+	dedupeKey string
+	sortKey   time.Time
 }
 
 func (c *CalendarTeamCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -65,37 +66,9 @@ func (c *CalendarTeamCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return wrapCloudIdentityError(err)
 	}
 
-	// Look up the group
-	groupName, err := lookupGroupByEmail(ctx, cloudSvc, groupEmail)
-	if err != nil {
-		return fmt.Errorf("failed to find group %q: %w", groupEmail, err)
-	}
-
-	// List members
-	membersResp, err := cloudSvc.Groups.Memberships.List(groupName).
-		PageSize(200). // Get all members
-		Context(ctx).
-		Do()
+	memberEmails, err := collectGroupMemberEmails(ctx, cloudSvc, groupEmail)
 	if err != nil {
 		return fmt.Errorf("failed to list group members: %w", err)
-	}
-
-	if len(membersResp.Memberships) == 0 {
-		u.Err().Printf("No members in group %s\n", groupEmail)
-		return nil
-	}
-
-	// Extract member emails (skip non-users)
-	var memberEmails []string
-	for _, m := range membersResp.Memberships {
-		if m == nil || m.PreferredMemberKey == nil {
-			continue
-		}
-		email := m.PreferredMemberKey.Id
-		// Skip groups (nested groups) and external emails for now
-		if m.Type == "USER" && strings.Contains(email, "@") {
-			memberEmails = append(memberEmails, email)
-		}
 	}
 
 	if len(memberEmails) == 0 {
@@ -251,16 +224,18 @@ func (c *CalendarTeamCmd) runEvents(ctx context.Context, svc *calendar.Service, 
 
 				start, end := formatEventTime(ev, tr.Location)
 				startTime := parseEventStart(ev, tr.Location)
+				dedupeKey := eventDedupeKey(ev, startTime)
 
 				mu.Lock()
 				events = append(events, teamEvent{
-					Who:     email,
-					ID:      ev.Id,
-					Start:   start,
-					End:     end,
-					Summary: summary,
-					Status:  ev.Status,
-					sortKey: startTime,
+					Who:       email,
+					ID:        ev.Id,
+					Start:     start,
+					End:       end,
+					Summary:   summary,
+					Status:    ev.Status,
+					dedupeKey: dedupeKey,
+					sortKey:   startTime,
 				})
 				mu.Unlock()
 			}
@@ -363,13 +338,31 @@ func dedupeTeamEvents(events []teamEvent) []teamEvent {
 	var result []teamEvent
 
 	for _, ev := range events {
-		if idx, ok := seen[ev.ID]; ok {
+		key := ev.dedupeKey
+		if key == "" {
+			key = ev.ID
+		}
+		if idx, ok := seen[key]; ok {
 			// Append this person to existing event
 			result[idx].Who += ", " + ev.Who
 		} else {
-			seen[ev.ID] = len(result)
+			seen[key] = len(result)
 			result = append(result, ev)
 		}
 	}
 	return result
+}
+
+func eventDedupeKey(ev *calendar.Event, startTime time.Time) string {
+	uid := strings.TrimSpace(ev.ICalUID)
+	if uid == "" {
+		uid = strings.TrimSpace(ev.Id)
+	}
+	if uid == "" {
+		return ""
+	}
+	if startTime.IsZero() {
+		return uid
+	}
+	return fmt.Sprintf("%s|%s", uid, startTime.Format(time.RFC3339))
 }

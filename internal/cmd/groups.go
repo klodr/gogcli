@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"google.golang.org/api/cloudidentity/v1"
@@ -244,4 +245,81 @@ func truncate(s string, maxLen int) string {
 		return s[:maxLen]
 	}
 	return s[:maxLen-3] + "..."
+}
+
+func collectGroupMemberEmails(ctx context.Context, svc *cloudidentity.Service, groupEmail string) ([]string, error) {
+	seenGroups := make(map[string]bool)
+	emails := make(map[string]bool)
+	if err := collectGroupMemberEmailsRecursive(ctx, svc, groupEmail, seenGroups, emails); err != nil {
+		return nil, err
+	}
+
+	results := make([]string, 0, len(emails))
+	for email := range emails {
+		results = append(results, email)
+	}
+	sort.Strings(results)
+	return results, nil
+}
+
+func collectGroupMemberEmailsRecursive(ctx context.Context, svc *cloudidentity.Service, groupEmail string, seenGroups map[string]bool, emails map[string]bool) error {
+	groupEmail = strings.TrimSpace(groupEmail)
+	if groupEmail == "" {
+		return nil
+	}
+	if seenGroups[groupEmail] {
+		return nil
+	}
+	seenGroups[groupEmail] = true
+
+	groupName, err := lookupGroupByEmail(ctx, svc, groupEmail)
+	if err != nil {
+		return fmt.Errorf("lookup group %q: %w", groupEmail, err)
+	}
+
+	memberships, err := listGroupMemberships(ctx, svc, groupName, 200)
+	if err != nil {
+		return fmt.Errorf("list members for %q: %w", groupEmail, err)
+	}
+
+	for _, m := range memberships {
+		if m == nil || m.PreferredMemberKey == nil {
+			continue
+		}
+		email := strings.TrimSpace(m.PreferredMemberKey.Id)
+		if email == "" || !strings.Contains(email, "@") {
+			continue
+		}
+		switch m.Type {
+		case "GROUP":
+			if err := collectGroupMemberEmailsRecursive(ctx, svc, email, seenGroups, emails); err != nil {
+				return err
+			}
+		case "USER", "":
+			emails[email] = true
+		}
+	}
+
+	return nil
+}
+
+func listGroupMemberships(ctx context.Context, svc *cloudidentity.Service, groupName string, pageSize int64) ([]*cloudidentity.Membership, error) {
+	var memberships []*cloudidentity.Membership
+	pageToken := ""
+	for {
+		call := svc.Groups.Memberships.List(groupName).PageSize(pageSize).Context(ctx)
+		if pageToken != "" {
+			call = call.PageToken(pageToken)
+		}
+		resp, err := call.Do()
+		if err != nil {
+			return nil, err
+		}
+		memberships = append(memberships, resp.Memberships...)
+		if resp.NextPageToken == "" {
+			break
+		}
+		pageToken = resp.NextPageToken
+	}
+	return memberships, nil
 }

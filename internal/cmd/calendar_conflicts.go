@@ -25,8 +25,9 @@ type CalendarConflictsCmd struct {
 	From      string `name:"from" help:"Start time (RFC3339, date, or relative: today, tomorrow, monday)"`
 	To        string `name:"to" help:"End time (RFC3339, date, or relative)"`
 	Today     bool   `name:"today" help:"Today only (timezone-aware)"`
-	Week      bool   `name:"week" help:"This week Mon-Sun (timezone-aware)"`
+	Week      bool   `name:"week" help:"This week (uses --week-start, default Mon)"`
 	Days      int    `name:"days" help:"Next N days (timezone-aware)" default:"0"`
+	WeekStart string `name:"week-start" help:"Week start day for --week (sun, mon, ...)" default:""`
 	Calendars string `name:"calendars" help:"Comma-separated calendar IDs" default:"primary"`
 }
 
@@ -49,11 +50,12 @@ func (c *CalendarConflictsCmd) Run(ctx context.Context, flags *RootFlags) error 
 
 	// Use timezone-aware time resolution
 	timeRange, err := ResolveTimeRange(ctx, svc, TimeRangeFlags{
-		From:  c.From,
-		To:    c.To,
-		Today: c.Today,
-		Week:  c.Week,
-		Days:  c.Days,
+		From:      c.From,
+		To:        c.To,
+		Today:     c.Today,
+		Week:      c.Week,
+		Days:      c.Days,
+		WeekStart: c.WeekStart,
 	})
 	if err != nil {
 		return err
