@@ -3,15 +3,18 @@ package googleauth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"net"
 	"net/http"
 	"os"
-	"sort"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -40,24 +43,23 @@ type ManageServer struct {
 	listener   net.Listener
 	server     *http.Server
 	store      secrets.Store
+	fetchEmail func(ctx context.Context, tok *oauth2.Token) (string, error)
 	oauthState string
 	resultCh   chan error
 }
 
 var openDefaultStore = secrets.OpenDefault
 
-// fetchUserEmailFn allows mocking in tests
-var fetchUserEmailFn = fetchUserEmail
-
-const (
-	userinfoURL        = "https://www.googleapis.com/oauth2/v2/userinfo"
-	userinfoEmailScope = "https://www.googleapis.com/auth/userinfo.email"
-)
-
 var (
 	errUserinfoRequestFailed = errors.New("userinfo request failed")
+	errMissingToken          = errors.New("missing token")
+	errMissingAccessToken    = errors.New("missing access token")
+	errInvalidIDToken        = errors.New("invalid id_token")
+	errNoEmailInIDToken      = errors.New("no email in id_token")
 	errNoEmailInResponse     = errors.New("no email in userinfo response")
 )
+
+const userinfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
 // StartManageServer starts the accounts management server and opens browser
 func StartManageServer(ctx context.Context, opts ManageServerOptions) error {
@@ -81,11 +83,12 @@ func StartManageServer(ctx context.Context, opts ManageServerOptions) error {
 	}
 
 	ms := &ManageServer{
-		opts:      opts,
-		csrfToken: csrfToken,
-		listener:  ln,
-		store:     store,
-		resultCh:  make(chan error, 1),
+		opts:       opts,
+		csrfToken:  csrfToken,
+		listener:   ln,
+		store:      store,
+		fetchEmail: fetchUserEmailDefault,
+		resultCh:   make(chan error, 1),
 	}
 
 	mux := http.NewServeMux()
@@ -208,7 +211,7 @@ func (ms *ManageServer) handleAuthStart(w http.ResponseWriter, r *http.Request) 
 		services = AllServices()
 	}
 
-	scopes, err := scopesForManage(services)
+	scopes, err := ScopesForManage(services)
 	if err != nil {
 		http.Error(w, "Failed to get scopes", http.StatusInternalServerError)
 		return
@@ -269,7 +272,7 @@ func (ms *ManageServer) handleOAuthCallback(w http.ResponseWriter, r *http.Reque
 		services = AllServices()
 	}
 
-	scopes, err := scopesForManage(services)
+	scopes, err := ScopesForManage(services)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		renderErrorPage(w, "Failed to get scopes: "+err.Error())
@@ -306,15 +309,13 @@ func (ms *ManageServer) handleOAuthCallback(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if tok.AccessToken == "" {
-		w.WriteHeader(http.StatusInternalServerError)
-		renderErrorPage(w, "No access token received from token exchange.")
-
-		return
+	fetchEmail := ms.fetchEmail
+	if fetchEmail == nil {
+		fetchEmail = fetchUserEmailDefault
 	}
 
 	// Fetch user email from Google's userinfo API
-	email, err := fetchUserEmailFn(ctx, tok.AccessToken)
+	email, err := fetchEmail(ctx, tok)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		renderErrorPage(w, "Failed to fetch user email: "+err.Error())
@@ -409,47 +410,22 @@ func (ms *ManageServer) handleRemoveAccount(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, map[string]any{"success": true})
 }
 
-func scopesForManage(services []Service) ([]string, error) {
-	scopes, err := ScopesForServices(services)
-	if err != nil {
-		return nil, err
+func fetchUserEmailDefault(ctx context.Context, tok *oauth2.Token) (string, error) {
+	if tok == nil {
+		return "", errMissingToken
 	}
 
-	return mergeScopes(scopes, []string{userinfoEmailScope}), nil
-}
-
-func mergeScopes(scopes []string, extras []string) []string {
-	set := make(map[string]struct{}, len(scopes)+len(extras))
-
-	for _, s := range scopes {
-		if s == "" {
-			continue
+	if raw, ok := tok.Extra("id_token").(string); ok && raw != "" {
+		if email, err := emailFromIDToken(raw); err == nil {
+			return email, nil
 		}
-
-		set[s] = struct{}{}
 	}
 
-	for _, s := range extras {
-		if s == "" {
-			continue
-		}
-
-		set[s] = struct{}{}
+	if tok.AccessToken == "" {
+		return "", errMissingAccessToken
 	}
 
-	out := make([]string, 0, len(set))
-	for s := range set {
-		out = append(out, s)
-	}
-
-	sort.Strings(out)
-
-	return out
-}
-
-// fetchUserEmail retrieves the user's email from Google's userinfo API using an access token.
-func fetchUserEmail(ctx context.Context, accessToken string) (string, error) {
-	return fetchUserEmailWithURL(ctx, accessToken, userinfoURL)
+	return fetchUserEmailWithURL(ctx, tok.AccessToken, userinfoURL)
 }
 
 // fetchUserEmailWithURL retrieves the user's email from the specified userinfo URL.
@@ -471,6 +447,11 @@ func fetchUserEmailWithURL(ctx context.Context, accessToken string, url string) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		msg := readHTTPBodySnippet(resp.Body, 512)
+		if msg != "" {
+			return "", fmt.Errorf("%w: status %d: %s", errUserinfoRequestFailed, resp.StatusCode, msg)
+		}
+
 		return "", fmt.Errorf("%w: status %d", errUserinfoRequestFailed, resp.StatusCode)
 	}
 
@@ -487,6 +468,52 @@ func fetchUserEmailWithURL(ctx context.Context, accessToken string, url string) 
 	}
 
 	return userInfo.Email, nil
+}
+
+func emailFromIDToken(idToken string) (string, error) {
+	parts := strings.Split(idToken, ".")
+	if len(parts) < 2 {
+		return "", errInvalidIDToken
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("%w: decode payload: %w", errInvalidIDToken, err)
+	}
+
+	var claims struct {
+		Email string `json:"email"`
+	}
+
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return "", fmt.Errorf("%w: parse payload: %w", errInvalidIDToken, err)
+	}
+
+	email := strings.TrimSpace(claims.Email)
+	if email == "" {
+		return "", errNoEmailInIDToken
+	}
+
+	return email, nil
+}
+
+func readHTTPBodySnippet(r io.Reader, limit int64) string {
+	b, err := io.ReadAll(io.LimitReader(r, limit))
+	if err != nil {
+		return ""
+	}
+
+	s := strings.TrimSpace(string(b))
+	if s == "" {
+		return ""
+	}
+
+	sum := sha256.Sum256([]byte(s))
+	if strings.Contains(s, "access_token") || strings.Contains(s, "refresh_token") || strings.Contains(s, "id_token") {
+		return fmt.Sprintf("response_sha256=%x", sum)
+	}
+
+	return s
 }
 
 func generateCSRFToken() (string, error) {

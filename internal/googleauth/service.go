@@ -21,6 +21,12 @@ const (
 	ServiceKeep     Service = "keep"
 )
 
+const (
+	scopeOpenID        = "openid"
+	scopeEmail         = "email"
+	scopeUserinfoEmail = "https://www.googleapis.com/auth/userinfo.email"
+)
+
 var errUnknownService = errors.New("unknown service")
 
 type serviceInfo struct {
@@ -228,6 +234,44 @@ func ScopesForServices(services []Service) ([]string, error) {
 	sort.Strings(out)
 
 	return out, nil
+}
+
+func ScopesForManage(services []Service) ([]string, error) {
+	scopes, err := ScopesForServices(services)
+	if err != nil {
+		return nil, err
+	}
+
+	return mergeScopes(scopes, []string{scopeOpenID, scopeEmail, scopeUserinfoEmail}), nil
+}
+
+func mergeScopes(scopes []string, extras []string) []string {
+	set := make(map[string]struct{}, len(scopes)+len(extras))
+
+	for _, s := range scopes {
+		if s == "" {
+			continue
+		}
+
+		set[s] = struct{}{}
+	}
+
+	for _, s := range extras {
+		if s == "" {
+			continue
+		}
+
+		set[s] = struct{}{}
+	}
+
+	out := make([]string, 0, len(set))
+	for s := range set {
+		out = append(out, s)
+	}
+
+	sort.Strings(out)
+
+	return out
 }
 
 func UserServiceCSV() string {

@@ -3,6 +3,7 @@ package googleauth
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -452,17 +453,22 @@ func TestManageServer_HandleAuthStart(t *testing.T) {
 	if scope == "" {
 		t.Fatalf("expected scope query param")
 	}
-	var foundEmailScope bool
+	required := map[string]bool{
+		scopeOpenID:        false,
+		scopeEmail:         false,
+		scopeUserinfoEmail: false,
+	}
 
 	for _, s := range strings.Fields(scope) {
-		if s == userinfoEmailScope {
-			foundEmailScope = true
-			break
+		if _, ok := required[s]; ok {
+			required[s] = true
 		}
 	}
 
-	if !foundEmailScope {
-		t.Fatalf("expected %q scope, got %q", userinfoEmailScope, scope)
+	for s, ok := range required {
+		if !ok {
+			t.Fatalf("expected %q scope, got %q", s, scope)
+		}
 	}
 }
 
@@ -488,12 +494,10 @@ func TestManageServer_HandleAuthStart_CredentialsError(t *testing.T) {
 func TestManageServer_HandleOAuthCallback_Success(t *testing.T) {
 	origRead := readClientCredentials
 	origEndpoint := oauthEndpoint
-	origFetchUserEmail := fetchUserEmailFn
 
 	t.Cleanup(func() {
 		readClientCredentials = origRead
 		oauthEndpoint = origEndpoint
-		fetchUserEmailFn = origFetchUserEmail
 	})
 
 	readClientCredentials = func() (config.ClientCredentials, error) {
@@ -517,11 +521,6 @@ func TestManageServer_HandleOAuthCallback_Success(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"email": "me@example.com"})
 	}))
 	defer userinfoSrv.Close()
-
-	// Override fetchUserEmail to use our mock server
-	fetchUserEmailFn = func(ctx context.Context, accessToken string) (string, error) {
-		return fetchUserEmailWithURL(ctx, accessToken, userinfoSrv.URL+"/oauth2/v2/userinfo")
-	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -560,7 +559,10 @@ func TestManageServer_HandleOAuthCallback_Success(t *testing.T) {
 		oauthState: "state1",
 		listener:   ln,
 		store:      store,
-		opts:       ManageServerOptions{Services: []Service{ServiceGmail}},
+		fetchEmail: func(ctx context.Context, tok *oauth2.Token) (string, error) {
+			return fetchUserEmailWithURL(ctx, tok.AccessToken, userinfoSrv.URL+"/oauth2/v2/userinfo")
+		},
+		opts: ManageServerOptions{Services: []Service{ServiceGmail}},
 	}
 
 	rr := httptest.NewRecorder()
@@ -581,6 +583,67 @@ func TestManageServer_HandleOAuthCallback_Success(t *testing.T) {
 
 	if !strings.Contains(rr.Body.String(), "me@example.com") {
 		t.Fatalf("expected body to include email")
+	}
+}
+
+func TestManageServer_HandleOAuthCallback_Success_IDTokenEmail(t *testing.T) {
+	origRead := readClientCredentials
+	origEndpoint := oauthEndpoint
+
+	t.Cleanup(func() {
+		readClientCredentials = origRead
+		oauthEndpoint = origEndpoint
+	})
+
+	readClientCredentials = func() (config.ClientCredentials, error) {
+		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
+	}
+
+	idToken := strings.Join([]string{
+		base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`)),
+		base64.RawURLEncoding.EncodeToString([]byte(`{"email":"me@example.com"}`)),
+		"",
+	}, ".")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token":  "token",
+			"refresh_token": "refresh",
+			"id_token":      idToken,
+			"token_type":    "Bearer",
+			"expires_in":    3600,
+		})
+	}))
+	defer srv.Close()
+
+	oauthEndpoint = oauth2.Endpoint{AuthURL: "http://example.com/auth", TokenURL: srv.URL}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+
+	t.Cleanup(func() { _ = ln.Close() })
+
+	store := &fakeStore{}
+	ms := &ManageServer{
+		oauthState: "state1",
+		listener:   ln,
+		store:      store,
+		opts:       ManageServerOptions{Services: []Service{ServiceGmail}},
+	}
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/oauth2/callback?state=state1&code=abc", nil)
+	ms.handleOAuthCallback(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status: %d body: %s", rr.Code, rr.Body.String())
+	}
+
+	if store.setTokenEmail != "me@example.com" {
+		t.Fatalf("expected token stored for me@example.com, got %q", store.setTokenEmail)
 	}
 }
 
@@ -649,6 +712,53 @@ func TestFetchUserEmail(t *testing.T) {
 		_, err := fetchUserEmailWithURL(context.Background(), "test-token", srv.URL)
 		if err == nil {
 			t.Fatal("expected error for invalid json")
+		}
+	})
+}
+
+func TestEmailFromIDToken(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		idToken := strings.Join([]string{
+			base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`)),
+			base64.RawURLEncoding.EncodeToString([]byte(`{"email":"me@example.com"}`)),
+			"",
+		}, ".")
+
+		email, err := emailFromIDToken(idToken)
+		if err != nil {
+			t.Fatalf("emailFromIDToken: %v", err)
+		}
+
+		if email != "me@example.com" {
+			t.Fatalf("expected me@example.com, got %q", email)
+		}
+	})
+
+	t.Run("invalid token", func(t *testing.T) {
+		_, err := emailFromIDToken("nope")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+
+		if !errors.Is(err, errInvalidIDToken) {
+			t.Fatalf("expected errInvalidIDToken, got %v", err)
+		}
+	})
+
+	t.Run("missing email", func(t *testing.T) {
+		idToken := strings.Join([]string{
+			base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`)),
+			base64.RawURLEncoding.EncodeToString([]byte(`{}`)),
+			"",
+		}, ".")
+
+		_, err := emailFromIDToken(idToken)
+		if err == nil {
+			t.Fatal("expected error")
+		}
+
+		if !errors.Is(err, errNoEmailInIDToken) {
+			t.Fatalf("expected errNoEmailInIDToken, got %v", err)
 		}
 	})
 }
