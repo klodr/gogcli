@@ -10,12 +10,14 @@ import (
 	"google.golang.org/api/calendar/v3"
 )
 
+const tzUTC = "UTC"
+
 func buildEventDateTime(value string, allDay bool) *calendar.EventDateTime {
 	value = strings.TrimSpace(value)
 	if allDay {
 		return &calendar.EventDateTime{Date: value}
 	}
-	// Try to parse and extract timezone for recurring event support
+
 	edt := &calendar.EventDateTime{DateTime: value}
 	if tz := extractTimezone(value); tz != "" {
 		edt.TimeZone = tz
@@ -26,29 +28,34 @@ func buildEventDateTime(value string, allDay bool) *calendar.EventDateTime {
 // extractTimezone attempts to determine a timezone from an RFC3339 datetime string.
 // Returns an IANA timezone name if determinable, empty string otherwise.
 func extractTimezone(value string) string {
-	// Try parsing with time.Parse to get location info
 	t, err := time.Parse(time.RFC3339, value)
 	if err != nil {
 		return ""
 	}
-	// If it's UTC (Z suffix), return UTC
-	if t.Location() == time.UTC {
-		return "UTC"
-	}
-	// For fixed offsets, map to common IANA timezones
+
 	_, offset := t.Zone()
-	hours := offset / 3600
-	switch hours {
-	case -5, -4: // EST/EDT
-		return "America/New_York"
-	case -6: // CST (CDT is -5, handled above)
-		return "America/Chicago"
-	case -7: // MST/PDT
-		return "America/Denver"
-	case -8: // PST
-		return "America/Los_Angeles"
-	case 0:
-		return "UTC"
+	if offset == 0 {
+		return tzUTC
+	}
+
+	// RFC3339 values have a fixed offset, but Google Calendar requires an IANA timezone
+	// name for recurring events. We guess by checking which common zones match the
+	// offset at this instant.
+	for _, candidate := range []string{
+		"America/New_York",
+		"America/Chicago",
+		"America/Denver",
+		"America/Phoenix",
+		"America/Los_Angeles",
+	} {
+		loc, err := time.LoadLocation(candidate)
+		if err != nil {
+			continue
+		}
+		_, candidateOffset := t.In(loc).Zone()
+		if candidateOffset == offset {
+			return candidate
+		}
 	}
 	return ""
 }
