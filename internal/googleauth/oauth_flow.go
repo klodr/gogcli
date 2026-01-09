@@ -230,6 +230,7 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 
 		if t, exchangeErr := cfg.Exchange(ctx, code); exchangeErr != nil {
 			_ = srv.Close()
+
 			return "", fmt.Errorf("exchange code: %w", exchangeErr)
 		} else {
 			tok = t
@@ -237,6 +238,7 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 
 		if tok.RefreshToken == "" {
 			_ = srv.Close()
+
 			return "", errNoRefreshToken
 		}
 
@@ -250,6 +252,7 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 		return "", err
 	case <-ctx.Done():
 		_ = srv.Close()
+
 		return "", fmt.Errorf("authorization canceled: %w", ctx.Err())
 	}
 }

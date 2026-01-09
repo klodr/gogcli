@@ -15,6 +15,7 @@ func EmailForRefreshToken(ctx context.Context, refreshToken string, scopes []str
 	if strings.TrimSpace(refreshToken) == "" {
 		return "", errMissingToken
 	}
+
 	if timeout <= 0 {
 		timeout = 15 * time.Second
 	}
@@ -37,6 +38,7 @@ func EmailForRefreshToken(ctx context.Context, refreshToken string, scopes []str
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Timeout: timeout})
 
 	ts := cfg.TokenSource(ctx, &oauth2.Token{RefreshToken: refreshToken})
+
 	tok, err := ts.Token()
 	if err != nil {
 		return "", fmt.Errorf("refresh access token: %w", err)
