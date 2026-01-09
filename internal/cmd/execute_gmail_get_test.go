@@ -23,11 +23,15 @@ func TestExecute_GmailGet_Metadata_JSON(t *testing.T) {
 			return
 		}
 		if got := r.URL.Query().Get("format"); got != "metadata" {
-			t.Fatalf("format=%q", got)
+			t.Errorf("format=%q", got)
+			http.Error(w, "bad format", http.StatusBadRequest)
+			return
 		}
 		gotHeaders := r.URL.Query()["metadataHeaders"]
 		if len(gotHeaders) != 3 || !containsAll(gotHeaders, []string{"Subject", "Date", "List-Unsubscribe"}) {
-			t.Fatalf("metadataHeaders=%#v", gotHeaders)
+			t.Errorf("metadataHeaders=%#v", gotHeaders)
+			http.Error(w, "bad metadataHeaders", http.StatusBadRequest)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -109,7 +113,9 @@ func TestExecute_GmailGet_Raw_JSON(t *testing.T) {
 			return
 		}
 		if got := r.URL.Query().Get("format"); got != "raw" {
-			t.Fatalf("format=%q", got)
+			t.Errorf("format=%q", got)
+			http.Error(w, "bad format", http.StatusBadRequest)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -169,7 +175,9 @@ func TestExecute_GmailGet_Full_JSON_Body(t *testing.T) {
 			return
 		}
 		if got := r.URL.Query().Get("format"); got != "full" {
-			t.Fatalf("format=%q", got)
+			t.Errorf("format=%q", got)
+			http.Error(w, "bad format", http.StatusBadRequest)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -244,7 +252,9 @@ func TestExecute_GmailGet_Metadata_Text(t *testing.T) {
 			return
 		}
 		if got := r.URL.Query().Get("format"); got != "metadata" {
-			t.Fatalf("format=%q", got)
+			t.Errorf("format=%q", got)
+			http.Error(w, "bad format", http.StatusBadRequest)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
