@@ -35,12 +35,12 @@ func TestBuildRFC822_InvalidHeaders(t *testing.T) {
 		t.Fatalf("expected invalid address error")
 	}
 	if _, err := buildRFC822(mailOptions{
-		From:     "a@b.com",
-		To:       []string{"c@d.com"},
-		Subject:  "Hi",
-		ReplyTo:  "reply@ex\r\nample.com",
-		Body:     "Hello",
-		InReplyTo:"<id>\r\n",
+		From:      "a@b.com",
+		To:        []string{"c@d.com"},
+		Subject:   "Hi",
+		ReplyTo:   "reply@ex\r\nample.com",
+		Body:      "Hello",
+		InReplyTo: "<id>\r\n",
 	}); err == nil {
 		t.Fatalf("expected invalid Reply-To error")
 	}

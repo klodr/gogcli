@@ -26,7 +26,7 @@ func TestExitErrorErrorAndUnwrap(t *testing.T) {
 		t.Fatalf("expected boom, got %q", got)
 	}
 
-	if got := err.Unwrap(); got != baseErr {
+	if got := err.Unwrap(); !errors.Is(got, baseErr) {
 		t.Fatalf("expected base err, got %v", got)
 	}
 }

@@ -85,13 +85,15 @@ type memStoreErr struct {
 	deleteErr error
 }
 
-func (m *memStoreErr) Keys() ([]string, error)                { return nil, m.keysErr }
-func (m *memStoreErr) SetToken(string, secrets.Token) error   { return nil }
-func (m *memStoreErr) GetToken(string) (secrets.Token, error) { return secrets.Token{}, errors.New("missing") }
-func (m *memStoreErr) DeleteToken(string) error               { return m.deleteErr }
-func (m *memStoreErr) ListTokens() ([]secrets.Token, error)   { return nil, nil }
-func (m *memStoreErr) GetDefaultAccount() (string, error)     { return "", nil }
-func (m *memStoreErr) SetDefaultAccount(string) error         { return nil }
+func (m *memStoreErr) Keys() ([]string, error)              { return nil, m.keysErr }
+func (m *memStoreErr) SetToken(string, secrets.Token) error { return nil }
+func (m *memStoreErr) GetToken(string) (secrets.Token, error) {
+	return secrets.Token{}, errors.New("missing")
+}
+func (m *memStoreErr) DeleteToken(string) error             { return m.deleteErr }
+func (m *memStoreErr) ListTokens() ([]secrets.Token, error) { return nil, nil }
+func (m *memStoreErr) GetDefaultAccount() (string, error)   { return "", nil }
+func (m *memStoreErr) SetDefaultAccount(string) error       { return nil }
 
 func TestAuthTokensDelete_Errors(t *testing.T) {
 	origOpen := openSecretsStore

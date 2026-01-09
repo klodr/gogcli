@@ -468,13 +468,13 @@ func TestWriteWatchState_LastPushMessageID(t *testing.T) {
 	ctx := ui.WithUI(context.Background(), u)
 
 	state := gmailWatchState{
-		Account:           "a@b.com",
-		Topic:             "projects/p/topics/t",
-		HistoryID:         "100",
-		LastDeliveryStatus: "ok",
-		LastDeliveryAtMs:  1,
+		Account:                "a@b.com",
+		Topic:                  "projects/p/topics/t",
+		HistoryID:              "100",
+		LastDeliveryStatus:     "ok",
+		LastDeliveryAtMs:       1,
 		LastDeliveryStatusNote: "note",
-		LastPushMessageID: "msg1",
+		LastPushMessageID:      "msg1",
 	}
 	if err := writeWatchState(ctx, state); err != nil {
 		t.Fatalf("writeWatchState: %v", err)

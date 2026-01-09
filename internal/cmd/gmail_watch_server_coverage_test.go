@@ -208,11 +208,11 @@ func TestGmailWatchServer_ServeHTTP_HookSuccess(t *testing.T) {
 
 	server := &gmailWatchServer{
 		cfg: gmailWatchServeConfig{
-			Account:    "a@b.com",
-			Path:       "/hook",
-			SharedToken:"tok",
-			HookURL:    hookSrv.URL,
-			HistoryMax: 10,
+			Account:     "a@b.com",
+			Path:        "/hook",
+			SharedToken: "tok",
+			HookURL:     hookSrv.URL,
+			HistoryMax:  10,
 		},
 		store:      store,
 		newService: func(context.Context, string) (*gmail.Service, error) { return gsvc, nil },

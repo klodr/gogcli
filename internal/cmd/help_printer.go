@@ -95,7 +95,7 @@ func helpColorMode(args []string) string {
 			return strings.ToLower(strings.TrimSpace(strings.TrimPrefix(a, "--color=")))
 		}
 	}
-	return "auto"
+	return colorAuto
 }
 
 func helpProfile(stdout io.Writer, mode string) termenv.Profile {
@@ -104,7 +104,7 @@ func helpProfile(stdout io.Writer, mode string) termenv.Profile {
 	}
 	mode = strings.ToLower(strings.TrimSpace(mode))
 	if mode == "" {
-		mode = "auto"
+		mode = colorAuto
 	}
 	switch mode {
 	case colorNever:

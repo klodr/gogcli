@@ -16,7 +16,7 @@ func TestWrapParseError(t *testing.T) {
 	}
 
 	plainErr := errors.New("plain")
-	if got := wrapParseError(plainErr); got != plainErr {
+	if got := wrapParseError(plainErr); !errors.Is(got, plainErr) {
 		t.Fatalf("expected passthrough error")
 	}
 

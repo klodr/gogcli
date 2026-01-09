@@ -221,7 +221,7 @@ func TestGmailDraftsCreate_FromUnverified(t *testing.T) {
 		if strings.Contains(r.URL.Path, "/gmail/v1/users/me/settings/sendAs/") && r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"sendAsEmail":       "alias@example.com",
+				"sendAsEmail":        "alias@example.com",
 				"verificationStatus": "pending",
 			})
 			return

@@ -17,7 +17,10 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-const colorNever = "never"
+const (
+	colorAuto  = "auto"
+	colorNever = "never"
+)
 
 type RootFlags struct {
 	Color   string `help:"Color output: auto|always|never" default:"${color}"`
