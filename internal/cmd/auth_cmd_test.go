@@ -90,6 +90,18 @@ func (s *memSecretsStore) SetDefaultAccount(email string) error {
 	return nil
 }
 
+type listKeysStore struct {
+	keys []string
+}
+
+func (s *listKeysStore) Keys() ([]string, error)                { return s.keys, nil }
+func (s *listKeysStore) SetToken(string, secrets.Token) error   { return nil }
+func (s *listKeysStore) GetToken(string) (secrets.Token, error) { return secrets.Token{}, nil }
+func (s *listKeysStore) DeleteToken(string) error               { return nil }
+func (s *listKeysStore) ListTokens() ([]secrets.Token, error)   { return nil, nil }
+func (s *listKeysStore) GetDefaultAccount() (string, error)     { return "", nil }
+func (s *listKeysStore) SetDefaultAccount(string) error         { return nil }
+
 func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
 	origOpen := openSecretsStore
 	origKeychain := ensureKeychainAccess
@@ -165,6 +177,27 @@ func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
 	}
 	if tok, err := store.GetToken("a@b.com"); err != nil || tok.RefreshToken != "rt" {
 		t.Fatalf("expected token restored, got tok=%#v err=%v", tok, err)
+	}
+}
+
+func TestAuthTokensList_FiltersNonTokenKeys(t *testing.T) {
+	origOpen := openSecretsStore
+	t.Cleanup(func() { openSecretsStore = origOpen })
+
+	openSecretsStore = func() (secrets.Store, error) {
+		return &listKeysStore{keys: []string{"backup", "token:a@b.com", "default_account"}}, nil
+	}
+
+	out := captureStdout(t, func() {
+		_ = captureStderr(t, func() {
+			if err := Execute([]string{"auth", "tokens", "list"}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+
+	if strings.TrimSpace(out) != "token:a@b.com" {
+		t.Fatalf("unexpected output: %q", out)
 	}
 }
 

@@ -107,7 +107,14 @@ func (c *AuthTokensListCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(keys) == 0 {
+	filtered := make([]string, 0, len(keys))
+	for _, k := range keys {
+		if _, ok := secrets.ParseTokenKey(k); ok {
+			filtered = append(filtered, k)
+		}
+	}
+
+	if len(filtered) == 0 {
 		if outfmt.IsJSON(ctx) {
 			return outfmt.WriteJSON(os.Stdout, map[string]any{"keys": []string{}})
 		}
@@ -115,9 +122,9 @@ func (c *AuthTokensListCmd) Run(ctx context.Context) error {
 		return nil
 	}
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(os.Stdout, map[string]any{"keys": keys})
+		return outfmt.WriteJSON(os.Stdout, map[string]any{"keys": filtered})
 	}
-	for _, k := range keys {
+	for _, k := range filtered {
 		u.Out().Println(k)
 	}
 	return nil
