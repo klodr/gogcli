@@ -20,6 +20,7 @@ type GmailDraftsCmd struct {
 	Delete GmailDraftsDeleteCmd `cmd:"" name:"delete" help:"Delete a draft"`
 	Send   GmailDraftsSendCmd   `cmd:"" name:"send" help:"Send a draft"`
 	Create GmailDraftsCreateCmd `cmd:"" name:"create" help:"Create a draft"`
+	Update GmailDraftsUpdateCmd `cmd:"" name:"update" help:"Update a draft"`
 }
 
 type GmailDraftsListCmd struct {
@@ -352,6 +353,114 @@ func (c *GmailDraftsCreateCmd) Run(ctx context.Context, flags *RootFlags) error 
 	}
 
 	draft, err := svc.Users.Drafts.Create("me", &gmail.Draft{Message: msg}).Do()
+	if err != nil {
+		return err
+	}
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(os.Stdout, map[string]any{
+			"draftId":  draft.Id,
+			"message":  draft.Message,
+			"threadId": threadID,
+		})
+	}
+	u.Out().Printf("draft_id\t%s", draft.Id)
+	if draft.Message != nil && draft.Message.Id != "" {
+		u.Out().Printf("message_id\t%s", draft.Message.Id)
+	}
+	if threadID != "" {
+		u.Out().Printf("thread_id\t%s", threadID)
+	}
+	return nil
+}
+
+type GmailDraftsUpdateCmd struct {
+	DraftID          string   `arg:"" name:"draftId" help:"Draft ID"`
+	To               string   `name:"to" help:"Recipients (comma-separated, required)"`
+	Cc               string   `name:"cc" help:"CC recipients (comma-separated)"`
+	Bcc              string   `name:"bcc" help:"BCC recipients (comma-separated)"`
+	Subject          string   `name:"subject" help:"Subject (required)"`
+	Body             string   `name:"body" help:"Body (plain text; required unless --body-html is set)"`
+	BodyHTML         string   `name:"body-html" help:"Body (HTML; optional)"`
+	ReplyToMessageID string   `name:"reply-to-message-id" help:"Reply to Gmail message ID (sets In-Reply-To/References and thread)"`
+	ReplyTo          string   `name:"reply-to" help:"Reply-To header address"`
+	Attach           []string `name:"attach" help:"Attachment file path (repeatable)"`
+	From             string   `name:"from" help:"Send from this email address (must be a verified send-as alias)"`
+}
+
+func (c *GmailDraftsUpdateCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	draftID := strings.TrimSpace(c.DraftID)
+	if draftID == "" {
+		return usage("empty draftId")
+	}
+	if strings.TrimSpace(c.To) == "" || strings.TrimSpace(c.Subject) == "" {
+		return usage("required: --to, --subject")
+	}
+	if strings.TrimSpace(c.Body) == "" && strings.TrimSpace(c.BodyHTML) == "" {
+		return usage("required: --body or --body-html")
+	}
+
+	svc, err := newGmailService(ctx, account)
+	if err != nil {
+		return err
+	}
+
+	// Determine the From address.
+	fromAddr := account
+	if strings.TrimSpace(c.From) != "" {
+		var sa *gmail.SendAs
+		sa, err = svc.Users.Settings.SendAs.Get("me", c.From).Context(ctx).Do()
+		if err != nil {
+			return fmt.Errorf("invalid --from address %q: %w", c.From, err)
+		}
+		if sa.VerificationStatus != gmailVerificationAccepted {
+			return fmt.Errorf("--from address %q is not verified (status: %s)", c.From, sa.VerificationStatus)
+		}
+		fromAddr = c.From
+		if sa.DisplayName != "" {
+			fromAddr = sa.DisplayName + " <" + c.From + ">"
+		}
+	}
+
+	inReplyTo, references, threadID, err := replyHeaders(ctx, svc, c.ReplyToMessageID)
+	if err != nil {
+		return err
+	}
+
+	atts := make([]mailAttachment, 0, len(c.Attach))
+	for _, p := range c.Attach {
+		atts = append(atts, mailAttachment{Path: p})
+	}
+
+	raw, err := buildRFC822(mailOptions{
+		From:        fromAddr,
+		To:          splitCSV(c.To),
+		Cc:          splitCSV(c.Cc),
+		Bcc:         splitCSV(c.Bcc),
+		ReplyTo:     c.ReplyTo,
+		Subject:     c.Subject,
+		Body:        c.Body,
+		BodyHTML:    c.BodyHTML,
+		InReplyTo:   inReplyTo,
+		References:  references,
+		Attachments: atts,
+	})
+	if err != nil {
+		return err
+	}
+
+	msg := &gmail.Message{
+		Raw: base64.RawURLEncoding.EncodeToString(raw),
+	}
+	if threadID != "" {
+		msg.ThreadId = threadID
+	}
+
+	draft, err := svc.Users.Drafts.Update("me", draftID, &gmail.Draft{Id: draftID, Message: msg}).Do()
 	if err != nil {
 		return err
 	}
