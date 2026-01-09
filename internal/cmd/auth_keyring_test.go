@@ -19,6 +19,7 @@ func TestAuthKeyringSet_WritesConfig(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 	t.Setenv("GOG_KEYRING_BACKEND", "")
+	t.Setenv("GOG_KEYRING_PASSWORD", "")
 
 	var stdout, stderr bytes.Buffer
 	u, err := ui.New(ui.Options{Stdout: &stdout, Stderr: &stderr, Color: "never"})
@@ -58,6 +59,7 @@ func TestAuthKeyring_WritesConfig_Shorthand(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 	t.Setenv("GOG_KEYRING_BACKEND", "")
+	t.Setenv("GOG_KEYRING_PASSWORD", "")
 
 	var stdout, stderr bytes.Buffer
 	u, err := ui.New(ui.Options{Stdout: &stdout, Stderr: &stderr, Color: "never"})
@@ -77,6 +79,41 @@ func TestAuthKeyring_WritesConfig_Shorthand(t *testing.T) {
 	}
 	if cfg.KeyringBackend != "file" {
 		t.Fatalf("expected file, got %q", cfg.KeyringBackend)
+	}
+}
+
+func TestAuthKeyring_FileBackendPasswordHint(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
+	t.Setenv("GOG_KEYRING_BACKEND", "")
+
+	var stdout, stderr bytes.Buffer
+	u, err := ui.New(ui.Options{Stdout: &stdout, Stderr: &stderr, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui new: %v", err)
+	}
+	ctx := ui.WithUI(context.Background(), u)
+	ctx = outfmt.WithMode(ctx, outfmt.Mode{})
+
+	t.Setenv("GOG_KEYRING_PASSWORD", "pw")
+	if err = runKong(t, &AuthKeyringCmd{}, []string{"file"}, ctx, nil); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !bytes.Contains(stderr.Bytes(), []byte("GOG_KEYRING_PASSWORD found in environment")) {
+		t.Fatalf("expected password env note, got:\n%s", stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+
+	t.Setenv("GOG_KEYRING_PASSWORD", "")
+	if err = runKong(t, &AuthKeyringCmd{}, []string{"file"}, ctx, nil); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !bytes.Contains(stderr.Bytes(), []byte("requires GOG_KEYRING_PASSWORD")) &&
+		!bytes.Contains(stderr.Bytes(), []byte("Hint: set GOG_KEYRING_PASSWORD")) {
+		t.Fatalf("expected password hint, got:\n%s", stderr.String())
 	}
 }
 

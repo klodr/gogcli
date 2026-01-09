@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/term"
+
 	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/secrets"
@@ -18,6 +20,8 @@ type AuthKeyringCmd struct {
 
 func (c *AuthKeyringCmd) Run(ctx context.Context) error {
 	u := ui.FromContext(ctx)
+
+	const keyringPasswordEnv = "GOG_KEYRING_PASSWORD" //nolint:gosec // env var name, not a credential
 
 	backend := strings.ToLower(strings.TrimSpace(c.Backend))
 	backend2 := strings.ToLower(strings.TrimSpace(c.Backend2))
@@ -88,6 +92,19 @@ func (c *AuthKeyringCmd) Run(ctx context.Context) error {
 		!outfmt.IsJSON(ctx) &&
 		!outfmt.IsPlain(ctx) {
 		u.Err().Printf("NOTE: GOG_KEYRING_BACKEND=%s overrides config.json", v)
+	}
+
+	if backend == "file" &&
+		u != nil &&
+		!outfmt.IsJSON(ctx) &&
+		!outfmt.IsPlain(ctx) {
+		if v := strings.TrimSpace(os.Getenv(keyringPasswordEnv)); v != "" {
+			u.Err().Println("GOG_KEYRING_PASSWORD found in environment.")
+		} else if !term.IsTerminal(int(os.Stdin.Fd())) {
+			u.Err().Printf("NOTE: file keyring backend in non-interactive context requires %s", keyringPasswordEnv)
+		} else {
+			u.Err().Printf("Hint: set %s for non-interactive use (CI/ssh)", keyringPasswordEnv)
+		}
 	}
 
 	if outfmt.IsJSON(ctx) {
