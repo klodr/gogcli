@@ -416,7 +416,29 @@ func TestGmailDraftsUpdateCmd_JSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/gmail/v1/users/me/drafts/d1") && r.Method == http.MethodGet:
-			t.Fatalf("unexpected drafts get: %s", r.URL.Path)
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":      "d1",
+				"message": map[string]any{"id": "m1", "threadId": "t1"},
+			})
+			return
+		case strings.Contains(r.URL.Path, "/gmail/v1/users/me/threads/t1") && r.Method == http.MethodGet:
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "t1",
+				"messages": []map[string]any{
+					{
+						"id":       "m1",
+						"threadId": "t1",
+						"payload": map[string]any{
+							"headers": []map[string]any{
+								{"name": "Message-ID", "value": "<m1@example.com>"},
+							},
+						},
+					},
+				},
+			})
+			return
 		case strings.Contains(r.URL.Path, "/gmail/v1/users/me/drafts/d1") && r.Method == http.MethodPut:
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -515,7 +537,7 @@ func TestGmailDraftsUpdateCmd_JSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(jsonOut), &parsed); err != nil {
 		t.Fatalf("json parse: %v", err)
 	}
-	if parsed.DraftID != "d1" || parsed.ThreadID != "" {
+	if parsed.DraftID != "d1" || parsed.ThreadID != "t1" {
 		t.Fatalf("unexpected json: %#v", parsed)
 	}
 }

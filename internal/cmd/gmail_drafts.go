@@ -289,6 +289,7 @@ type draftComposeInput struct {
 	Body             string
 	BodyHTML         string
 	ReplyToMessageID string
+	ReplyToThreadID  string
 	ReplyTo          string
 	Attach           []string
 	From             string
@@ -320,10 +321,13 @@ func buildDraftMessage(ctx context.Context, svc *gmail.Service, account string, 
 		}
 	}
 
-	inReplyTo, references, threadID, err := replyHeaders(ctx, svc, input.ReplyToMessageID)
+	info, err := fetchReplyInfo(ctx, svc, input.ReplyToMessageID, input.ReplyToThreadID)
 	if err != nil {
 		return nil, "", err
 	}
+	inReplyTo := info.InReplyTo
+	references := info.References
+	threadID := info.ThreadID
 
 	atts := make([]mailAttachment, 0, len(input.Attach))
 	for _, p := range input.Attach {
@@ -358,6 +362,9 @@ func buildDraftMessage(ctx context.Context, svc *gmail.Service, account string, 
 }
 
 func writeDraftResult(ctx context.Context, u *ui.UI, draft *gmail.Draft, threadID string) error {
+	if threadID == "" && draft != nil && draft.Message != nil {
+		threadID = draft.Message.ThreadId
+	}
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(os.Stdout, map[string]any{
 			"draftId":  draft.Id,
@@ -390,6 +397,7 @@ func (c *GmailDraftsCreateCmd) Run(ctx context.Context, flags *RootFlags) error 
 		Body:             c.Body,
 		BodyHTML:         c.BodyHTML,
 		ReplyToMessageID: c.ReplyToMessageID,
+		ReplyToThreadID:  "",
 		ReplyTo:          c.ReplyTo,
 		Attach:           c.Attach,
 		From:             c.From,
@@ -440,6 +448,22 @@ func (c *GmailDraftsUpdateCmd) Run(ctx context.Context, flags *RootFlags) error 
 		return usage("empty draftId")
 	}
 
+	svc, err := newGmailService(ctx, account)
+	if err != nil {
+		return err
+	}
+
+	threadID := ""
+	if strings.TrimSpace(c.ReplyToMessageID) == "" {
+		existing, err := svc.Users.Drafts.Get("me", draftID).Format("metadata").Do()
+		if err != nil {
+			return err
+		}
+		if existing != nil && existing.Message != nil {
+			threadID = strings.TrimSpace(existing.Message.ThreadId)
+		}
+	}
+
 	input := draftComposeInput{
 		To:               c.To,
 		Cc:               c.Cc,
@@ -448,17 +472,13 @@ func (c *GmailDraftsUpdateCmd) Run(ctx context.Context, flags *RootFlags) error 
 		Body:             c.Body,
 		BodyHTML:         c.BodyHTML,
 		ReplyToMessageID: c.ReplyToMessageID,
+		ReplyToThreadID:  threadID,
 		ReplyTo:          c.ReplyTo,
 		Attach:           c.Attach,
 		From:             c.From,
 	}
 	if validateErr := input.validate(); validateErr != nil {
 		return validateErr
-	}
-
-	svc, err := newGmailService(ctx, account)
-	if err != nil {
-		return err
 	}
 
 	msg, threadID, err := buildDraftMessage(ctx, svc, account, input)

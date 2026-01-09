@@ -98,6 +98,23 @@ func TestExecute_GmailThreadDraftsSend_JSON(t *testing.T) {
 				},
 			})
 			return
+		case strings.Contains(path, "/gmail/v1/users/me/threads/t1") && r.Method == http.MethodGet:
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "t1",
+				"messages": []map[string]any{
+					{
+						"id":       "m1",
+						"threadId": "t1",
+						"payload": map[string]any{
+							"headers": []map[string]any{
+								{"name": "Message-ID", "value": "<m1@example.com>"},
+							},
+						},
+					},
+				},
+			})
+			return
 		case strings.Contains(path, "/gmail/v1/users/me/drafts/d1") && r.Method == http.MethodPut:
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
