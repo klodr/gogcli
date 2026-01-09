@@ -455,9 +455,9 @@ func (c *GmailDraftsUpdateCmd) Run(ctx context.Context, flags *RootFlags) error 
 
 	threadID := ""
 	if strings.TrimSpace(c.ReplyToMessageID) == "" {
-		existing, err := svc.Users.Drafts.Get("me", draftID).Format("metadata").Do()
-		if err != nil {
-			return err
+		existing, fetchErr := svc.Users.Drafts.Get("me", draftID).Format("metadata").Do()
+		if fetchErr != nil {
+			return fetchErr
 		}
 		if existing != nil && existing.Message != nil {
 			threadID = strings.TrimSpace(existing.Message.ThreadId)
