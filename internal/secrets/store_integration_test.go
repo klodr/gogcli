@@ -11,6 +11,7 @@ import (
 )
 
 func setupKeyringEnv(t *testing.T) {
+	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
@@ -63,7 +64,8 @@ func TestEnsureKeyringDir(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
 
-	if _, err := config.EnsureKeyringDir(); err != nil {
+	_, err := config.EnsureKeyringDir()
+	if err != nil {
 		t.Fatalf("EnsureKeyringDir: %v", err)
 	}
 }

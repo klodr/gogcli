@@ -16,6 +16,7 @@ func TestConfigExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConfigExists: %v", err)
 	}
+
 	if exists {
 		t.Fatalf("expected config to be missing")
 	}
@@ -24,10 +25,14 @@ func TestConfigExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConfigPath: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+
+	err = os.MkdirAll(filepath.Dir(path), 0o700)
+	if err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(path, []byte(`{}`), 0o600); err != nil {
+
+	err = os.WriteFile(path, []byte(`{}`), 0o600)
+	if err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
@@ -35,6 +40,7 @@ func TestConfigExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConfigExists (after write): %v", err)
 	}
+
 	if !exists {
 		t.Fatalf("expected config to exist")
 	}
@@ -49,6 +55,7 @@ func TestKeepServiceAccountLegacyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("KeepServiceAccountLegacyPath: %v", err)
 	}
+
 	if !strings.Contains(path, "keep-sa-User@Example.com.json") {
 		t.Fatalf("unexpected path: %q", path)
 	}

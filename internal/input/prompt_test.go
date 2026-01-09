@@ -12,6 +12,7 @@ import (
 
 func TestPromptLineFrom(t *testing.T) {
 	var stderr bytes.Buffer
+
 	u, err := ui.New(ui.Options{Stdout: &stderr, Stderr: &stderr, Color: "never"})
 	if err != nil {
 		t.Fatalf("ui.New: %v", err)
@@ -32,17 +33,20 @@ func TestPromptLineFrom(t *testing.T) {
 
 func TestPromptLine(t *testing.T) {
 	orig := os.Stdin
+
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
+
 	defer func() {
 		_ = r.Close()
 		os.Stdin = orig
 	}()
 	os.Stdin = r
-	if _, err := w.WriteString("world\n"); err != nil {
-		t.Fatalf("write: %v", err)
+	_, writeErr := w.WriteString("world\n")
+	if writeErr != nil {
+		t.Fatalf("write: %v", writeErr)
 	}
 	_ = w.Close()
 

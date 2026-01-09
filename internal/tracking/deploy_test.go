@@ -63,6 +63,7 @@ func TestDeployWorker_MissingWrangler(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "wrangler.toml"), []byte("name = \"x\"\n"), 0o600); err != nil {
 		t.Fatalf("write wrangler.toml: %v", err)
 	}
+
 	t.Setenv("PATH", dir)
 
 	_, err := DeployWorker(context.Background(), nil, DeployOptions{
@@ -225,5 +226,6 @@ exit 2
 	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
 		t.Fatalf("write wrangler stub: %v", err)
 	}
+
 	return path
 }

@@ -1,6 +1,7 @@
 package googleauth
 
 import (
+	"context"
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
@@ -31,11 +32,11 @@ func TestHandleAccountsPage(t *testing.T) {
 }
 
 func TestFetchUserEmailDefault(t *testing.T) {
-	if _, err := fetchUserEmailDefault(nil, nil); err == nil {
+	if _, err := fetchUserEmailDefault(context.TODO(), nil); err == nil {
 		t.Fatalf("expected missing token error")
 	}
 
-	if _, err := fetchUserEmailDefault(nil, &oauth2.Token{}); err == nil {
+	if _, err := fetchUserEmailDefault(context.TODO(), &oauth2.Token{}); err == nil {
 		t.Fatalf("expected missing access token error")
 	}
 
@@ -44,7 +45,7 @@ func TestFetchUserEmailDefault(t *testing.T) {
 	tok := &oauth2.Token{AccessToken: "access"}
 	tok = tok.WithExtra(map[string]any{"id_token": idToken})
 
-	email, err := fetchUserEmailDefault(nil, tok)
+	email, err := fetchUserEmailDefault(context.TODO(), tok)
 	if err != nil {
 		t.Fatalf("fetchUserEmailDefault: %v", err)
 	}

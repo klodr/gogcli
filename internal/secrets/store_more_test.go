@@ -10,6 +10,8 @@ import (
 	"github.com/99designs/keyring"
 )
 
+var errTestKeychain = errors.New("test -25308 error")
+
 func TestKeyringStore_ListDeleteDefault(t *testing.T) {
 	ring := keyring.NewArrayKeyring(nil)
 	store := &KeyringStore{ring: ring}
@@ -31,14 +33,17 @@ func TestKeyringStore_ListDeleteDefault(t *testing.T) {
 		t.Fatalf("expected 2 tokens, got %d", len(tokens))
 	}
 
-	if err := store.DeleteToken(tok1.Email); err != nil {
+	err = store.DeleteToken(tok1.Email)
+	if err != nil {
 		t.Fatalf("DeleteToken: %v", err)
 	}
-	if _, err := store.GetToken(tok1.Email); err == nil {
+	_, err = store.GetToken(tok1.Email)
+	if err == nil {
 		t.Fatalf("expected error for deleted token")
 	}
 
-	if err := store.SetDefaultAccount("a@b.com"); err != nil {
+	err = store.SetDefaultAccount("a@b.com")
+	if err != nil {
 		t.Fatalf("SetDefaultAccount: %v", err)
 	}
 	def, err := store.GetDefaultAccount()
@@ -74,15 +79,15 @@ func TestAllowedBackends(t *testing.T) {
 }
 
 func TestWrapKeychainError(t *testing.T) {
-	err := errors.New("test -25308 error")
-	wrapped := wrapKeychainError(err)
+	wrapped := wrapKeychainError(errTestKeychain)
 	if runtime.GOOS == "darwin" {
-		if wrapped == err || !strings.Contains(wrapped.Error(), "keychain is locked") {
+		if !errors.Is(wrapped, errTestKeychain) || !strings.Contains(wrapped.Error(), "keychain is locked") {
 			t.Fatalf("expected wrapped keychain error, got: %v", wrapped)
 		}
+
 		return
 	}
-	if wrapped != err {
+	if !errors.Is(wrapped, errTestKeychain) || wrapped.Error() != errTestKeychain.Error() {
 		t.Fatalf("expected passthrough error, got: %v", wrapped)
 	}
 }

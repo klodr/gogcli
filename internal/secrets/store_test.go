@@ -230,6 +230,7 @@ func TestOpenKeyringWithTimeout_Timeout(t *testing.T) {
 	t.Cleanup(func() { keyringOpenFunc = originalOpen })
 
 	_, err = openKeyringWithTimeout(cfg, 10*time.Millisecond)
+
 	close(blockCh)
 
 	if err == nil {

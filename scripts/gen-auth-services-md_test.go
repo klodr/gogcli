@@ -13,6 +13,7 @@ func TestMainUpdatesReadme(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatalf("chdir: %v", err)
 	}
+
 	t.Cleanup(func() { _ = os.Chdir(orig) })
 
 	readme := filepath.Join(dir, "README.md")
