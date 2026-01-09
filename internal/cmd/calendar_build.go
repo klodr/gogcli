@@ -10,12 +10,54 @@ import (
 	"google.golang.org/api/calendar/v3"
 )
 
+const tzUTC = "UTC"
+
 func buildEventDateTime(value string, allDay bool) *calendar.EventDateTime {
 	value = strings.TrimSpace(value)
 	if allDay {
 		return &calendar.EventDateTime{Date: value}
 	}
-	return &calendar.EventDateTime{DateTime: value}
+
+	edt := &calendar.EventDateTime{DateTime: value}
+	if tz := extractTimezone(value); tz != "" {
+		edt.TimeZone = tz
+	}
+	return edt
+}
+
+// extractTimezone attempts to determine a timezone from an RFC3339 datetime string.
+// Returns an IANA timezone name if determinable, empty string otherwise.
+func extractTimezone(value string) string {
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return ""
+	}
+
+	_, offset := t.Zone()
+	if offset == 0 {
+		return tzUTC
+	}
+
+	// RFC3339 values have a fixed offset, but Google Calendar requires an IANA timezone
+	// name for recurring events. We guess by checking which common zones match the
+	// offset at this instant.
+	for _, candidate := range []string{
+		"America/New_York",
+		"America/Chicago",
+		"America/Denver",
+		"America/Phoenix",
+		"America/Los_Angeles",
+	} {
+		loc, err := time.LoadLocation(candidate)
+		if err != nil {
+			continue
+		}
+		_, candidateOffset := t.In(loc).Zone()
+		if candidateOffset == offset {
+			return candidate
+		}
+	}
+	return ""
 }
 
 func buildConferenceData(withMeet bool) *calendar.ConferenceData {
