@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,6 +20,37 @@ func ConfigPath() (string, error) {
 	}
 
 	return filepath.Join(dir, "config.json"), nil
+}
+
+func WriteConfig(cfg File) error {
+	_, err := EnsureDir()
+	if err != nil {
+		return fmt.Errorf("ensure config dir: %w", err)
+	}
+
+	path, err := ConfigPath()
+	if err != nil {
+		return err
+	}
+
+	b, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode config json: %w", err)
+	}
+
+	b = append(b, '\n')
+
+	tmp := path + ".tmp"
+
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("commit config: %w", err)
+	}
+
+	return nil
 }
 
 func ConfigExists() (bool, error) {

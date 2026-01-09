@@ -2,46 +2,51 @@
 
 ## 0.5.0 - Unreleased
 
-- Config: add JSON5 `config.json` (comments ok) and `gog auth status`/help now show keyring backend + config path.
-- CLI: help now defaults to grouped output (no expanded subcommands); use `GOG_HELP=full gog --help` for full expansion.
-- CLI: help shows build version + git SHA and adds colored headings/command names (respects `NO_COLOR` and `--color`).
-- CLI: accept `--output` alias for `--out` and `--output-dir` for Gmail attachment downloads (#47) — thanks @salmonumbrella.
-- Auth: `gog auth list --check` validates refresh tokens by exchanging for an access token.
-- Auth: manual OAuth paste accepts EOF without newline (#46) — thanks @salmonumbrella.
-- Secrets: on headless Linux (no `DBUS_SESSION_BUS_ADDRESS`), automatically use file backend to avoid D-Bus hangs; timeout fallback for edge cases (#51, fixes #45) — thanks @salmonumbrella.
-- Auth: OAuth browser flow now finishes immediately after callback (no 30s “stuck” delay).
-- Homebrew: tap now installs GitHub release binaries (macOS) to reduce Keychain prompt churn.
-- Secrets: add `GOG_KEYRING_BACKEND={auto|keychain|file}` to force backend (use `file` to avoid Keychain prompts; pair with `GOG_KEYRING_PASSWORD`).
-- Secrets: normalize keyring backend values (trim/case-insensitive) + add coverage (#26) — thanks @salmonumbrella.
-- Sheets: `sheets update|append --copy-validation-from ...` copies data validation onto written cells (#29) — thanks @mahmoudashraf93.
-- Docs: explain macOS Keychain prompts and backend options.
-- DX: remove pnpm wrapper; use `make gog`.
-- DX: `make gogcli -- ...` passes args to the CLI; add `make gogcli-help` convenience target.
-- Calendar: `gog calendar update --add-attendee ...` adds attendees without replacing existing RSVP state (#24) — thanks @salmonumbrella.
-- Calendar: add `gog calendar create|update --rrule/--reminder` for recurrence rules and custom reminders (#34) — thanks @salmonumbrella.
-- Calendar: infer IANA `timeZone` from `--from/--to` offsets for recurring events (#53) — thanks @visionik.
-- Calendar: add Groups/team calendar commands + search time window flags (#41) — thanks @salmonumbrella.
-- Calendar: add `--week-start`, expand search window defaults, and improve team dedupe/nested group handling.
-- Gmail: `gog gmail thread attachments` list/download attachments (#27) — thanks @salmonumbrella.
-- Gmail: `gog gmail thread get --full` shows complete bodies (default truncates) (#25) — thanks @salmonumbrella.
-- Gmail: email open tracking (`gog gmail send --track`, `gog gmail track ...`) via Cloudflare Worker backend (#38) — thanks @salmonumbrella.
-- Gmail: tracking setup is per-account with optional deploy + `--track-split` per-recipient sends (#35) — thanks @salmonumbrella.
-- Gmail: surface List-Unsubscribe links in `gog gmail get`/`thread get` output (#39) — thanks @jverdi.
-- Gmail: ignore stale/duplicate watch pushes (historyId + messageId) and prevent history regressions (#40) — thanks @joargp.
-- Gmail: reorganize `gog gmail --help` into sections and add `gog gmail settings ...` (old subcommands remain available).
-- Gmail: add `gog gmail labels create` command (#42) — thanks @ryatkins.
-- Gmail: add Gmail settings scope for filter operations (#48) — thanks @camerondare.
-- Gmail: show last message date in thread search; add `--oldest` for first message date (#49) — thanks @kyupark.
-- Gmail: `gog gmail get --json` now includes extracted `body` for `--format full`; MIME params + padded base64url supported (#52) — thanks @antons.
-- Contacts: add `gog contacts other delete` for removing other contacts (#43) — thanks @salmonumbrella.
-- Keep: add Workspace-only Google Keep support (service account + domain-wide delegation) (#32) — thanks @koala73.
-- Auth: `gog auth add` now defaults to `--services user` (`--services all` accepted as an alias for backwards compatibility).
-- Auth: allow `docs` in `gog auth add --services` (#33) — thanks @mbelinky.
-- Auth: `docs` now requests both Drive and Docs scopes.
-- Auth: `gog auth manage` stores tokens under the real account email (Google userinfo) (#36) — thanks @salmonumbrella.
+### Highlights
+
+- Email open tracking: `gog gmail send --track` + `gog gmail track ...` (Cloudflare Worker backend; optional per-account setup + `--track-split`) (#35) — thanks @salmonumbrella.
+- Calendar: recurrence rules/reminders, Focus Time/OOO/Working Location event types, and team/Groups commands (#41) — thanks @salmonumbrella.
+- Auth/config: JSON5 `config.json`, improved `gog auth status`, and refresh token validation via `gog auth list --check`.
+- Secrets: safer keyring behavior (headless Linux guard; keychain unlock guidance).
+- Keep: Workspace-only Google Keep support — thanks @koala73.
+
+### Added
+
+- Calendar:
+  - `gog calendar create|update --rrule/--reminder` for recurrence rules and custom reminders — thanks @salmonumbrella.
+  - `gog calendar update --add-attendee ...` to add attendees without losing existing RSVP state.
+  - Workspace users list + timezone-aware time windows and flags like `--week-start`.
+- Gmail:
+  - `gog gmail thread attachments` list/download attachments (#27) — thanks @salmonumbrella.
+  - `gog gmail thread get --full` shows complete bodies (default truncates) (#25) — thanks @salmonumbrella.
+  - `gog gmail labels create`, reply-all support, thread search date display, and thread-id replies.
+  - `gog gmail get --json` includes flattened headers, `unsubscribe`, and extracted `body` (for `--format full`).
+  - `gog gmail settings ...` reorg + filter operations now request the right settings scope (thanks @camerondare).
+- Contacts: `gog contacts other delete` for removing other contacts (thanks @salmonumbrella).
+- Drive: comments subcommand.
+- Sheets: `sheets update|append --copy-validation-from ...` copies data validation (#29) — thanks @mahmoudashraf93.
+- Auth/services:
+  - `docs` service support + service metadata/listing (thanks @mbelinky).
+  - `gog auth keyring set <auto|keychain|file>` writes `keyring_backend` to `config.json`.
+  - `GOG_KEYRING_BACKEND={auto|keychain|file}` to force a backend (use `file` to avoid Keychain prompts; pair with `GOG_KEYRING_PASSWORD`).
 - Docs: `docs info`/`docs cat` now use the Docs API (Drive still used for exports/copy/create).
-- Calendar: feature-parity flags + new event types (focus-time/ooo/working-location) and recurring scope updates (#38) — thanks @salmonumbrella.
-- Tests: expand coverage and add tracking/gmail/calendar regressions (#35) — thanks @salmonumbrella.
+- Build: linux_arm64 release target.
+
+### Fixed
+
+- Calendar: recurring event creation now sets an IANA `timeZone` inferred from `--from/--to` offsets (#53) — thanks @visionik.
+- Secrets:
+  - Headless Linux no longer hangs on D-Bus; auto-fallback to file backend and timeout guidance for edge cases (fixes #45) — thanks @salmonumbrella.
+  - Keyring backend normalization/validation and clearer errors — thanks @salmonumbrella.
+  - macOS Keychain: detect “locked” state and offer unlock guidance.
+- Auth: OAuth browser flow now finishes immediately after callback; manual OAuth paste accepts EOF; tokens are stored under the real account email (Google userinfo).
+- Gmail: watch push dedupe/historyId sync improvements; List-Unsubscribe extraction; MIME normalization + padded base64url support (#52) — thanks @antons.
+
+### Changed
+
+- CLI: help output polish (grouped by default, optional full expansion via `GOG_HELP=full`); colored headings/command names; more flag aliases like `--output`/`--output-dir` (#47) — thanks @salmonumbrella.
+- Homebrew/DX: tap installs GitHub release binaries (macOS) to reduce Keychain prompt churn; remove pnpm wrapper in favor of `make gog` targets.
+- Auth: `gog auth add` now defaults to `--services user` (`--services all` remains accepted for backwards compatibility).
 
 ## 0.4.2 - 2025-12-31
 
