@@ -15,7 +15,42 @@ func buildEventDateTime(value string, allDay bool) *calendar.EventDateTime {
 	if allDay {
 		return &calendar.EventDateTime{Date: value}
 	}
-	return &calendar.EventDateTime{DateTime: value}
+	// Try to parse and extract timezone for recurring event support
+	edt := &calendar.EventDateTime{DateTime: value}
+	if tz := extractTimezone(value); tz != "" {
+		edt.TimeZone = tz
+	}
+	return edt
+}
+
+// extractTimezone attempts to determine a timezone from an RFC3339 datetime string.
+// Returns an IANA timezone name if determinable, empty string otherwise.
+func extractTimezone(value string) string {
+	// Try parsing with time.Parse to get location info
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return ""
+	}
+	// If it's UTC (Z suffix), return UTC
+	if t.Location() == time.UTC {
+		return "UTC"
+	}
+	// For fixed offsets, map to common IANA timezones
+	_, offset := t.Zone()
+	hours := offset / 3600
+	switch hours {
+	case -5, -4: // EST/EDT
+		return "America/New_York"
+	case -6: // CST (CDT is -5, handled above)
+		return "America/Chicago"
+	case -7: // MST/PDT
+		return "America/Denver"
+	case -8: // PST
+		return "America/Los_Angeles"
+	case 0:
+		return "UTC"
+	}
+	return ""
 }
 
 func buildConferenceData(withMeet bool) *calendar.ConferenceData {
