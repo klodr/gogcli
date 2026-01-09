@@ -214,7 +214,7 @@ Service scope matrix (auto-generated; run `go run scripts/gen-auth-services-md.g
 <!-- auth-services:start -->
 | Service | User | APIs | Scopes | Notes |
 | --- | --- | --- | --- | --- |
-| gmail | yes | Gmail API | `https://mail.google.com/` |  |
+| gmail | yes | Gmail API | `https://mail.google.com/`<br>`https://www.googleapis.com/auth/gmail.settings.basic` |  |
 | calendar | yes | Calendar API | `https://www.googleapis.com/auth/calendar` |  |
 | drive | yes | Drive API | `https://www.googleapis.com/auth/drive` |  |
 | docs | yes | Docs API, Drive API | `https://www.googleapis.com/auth/drive`<br>`https://www.googleapis.com/auth/documents` | Export/copy/create via Drive |
@@ -222,6 +222,7 @@ Service scope matrix (auto-generated; run `go run scripts/gen-auth-services-md.g
 | tasks | yes | Tasks API | `https://www.googleapis.com/auth/tasks` |  |
 | sheets | yes | Sheets API, Drive API | `https://www.googleapis.com/auth/spreadsheets` | Export via Drive |
 | people | yes | People API | `profile` | OIDC profile scope |
+| groups | no | Cloud Identity API | `https://www.googleapis.com/auth/cloud-identity.groups.readonly` | Workspace only |
 | keep | no | Keep API | `https://www.googleapis.com/auth/keep` | Workspace only; service account |
 <!-- auth-services:end -->
 
@@ -628,7 +629,7 @@ gog groups members engineering@company.com
 Note: Groups commands require the Cloud Identity API and the `cloud-identity.groups.readonly` scope. If you get a permissions error, re-authenticate:
 
 ```bash
-gog auth add your@email.com --force-consent
+gog auth add your@email.com --services groups --force-consent
 ```
 
 ### Docs

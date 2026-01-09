@@ -110,7 +110,7 @@ func wrapCloudIdentityError(err error) error {
 	}
 	if strings.Contains(errStr, "insufficientPermissions") ||
 		strings.Contains(errStr, "insufficient authentication scopes") {
-		return fmt.Errorf("insufficient permissions for Cloud Identity API; you may need to re-authenticate to grant the cloud-identity.groups.readonly scope: gog auth add <account>\n\nOriginal error: %w", err)
+		return fmt.Errorf("insufficient permissions for Cloud Identity API; re-authenticate with the cloud-identity.groups.readonly scope: gog auth add <account> --services groups\n\nOriginal error: %w", err)
 	}
 	return err
 }

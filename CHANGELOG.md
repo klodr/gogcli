@@ -5,12 +5,12 @@
 ### Highlights
 
 - Email open tracking: `gog gmail send --track` + `gog gmail track ...` (Cloudflare Worker backend; optional per-account setup + `--track-split`) (#35) — thanks @salmonumbrella.
-- Calendar: recurrence rules/reminders, Focus Time/OOO/Working Location event types, and team/Groups commands (#41) — thanks @salmonumbrella.
-- Auth/config: JSON5 `config.json`, improved `gog auth status`, and refresh token validation via `gog auth list --check`.
-- Secrets: safer keyring behavior (headless Linux guard; keychain unlock guidance).
+- Calendar parity + Workspace: recurrence rules/reminders, Focus Time/OOO/Working Location event types, workspace users list, and Groups/team helpers (#41) — thanks @salmonumbrella.
+- Auth + config: JSON5 `config.json`, improved `gog auth status`, `gog auth keyring ...`, and refresh token validation via `gog auth list --check`.
+- Secrets UX: safer keyring behavior (headless Linux guard; keychain unlock guidance).
 - Keep: Workspace-only Google Keep support — thanks @koala73.
 
-### Added
+### Features
 
 - Calendar:
   - `gog calendar create|update --rrule/--reminder` for recurrence rules and custom reminders — thanks @salmonumbrella.
@@ -28,6 +28,7 @@
 - Sheets: `sheets update|append --copy-validation-from ...` copies data validation (#29) — thanks @mahmoudashraf93.
 - Auth/services:
   - `docs` service support + service metadata/listing (thanks @mbelinky).
+  - `groups` service support for Cloud Identity (Workspace only): `gog auth add <email> --services groups`.
   - `gog auth keyring <auto|keychain|file>` writes `keyring_backend` to `config.json`.
   - `GOG_KEYRING_BACKEND={auto|keychain|file}` to force a backend (use `file` to avoid Keychain prompts; pair with `GOG_KEYRING_PASSWORD`).
 - Docs: `docs info`/`docs cat` now use the Docs API (Drive still used for exports/copy/create).
@@ -40,7 +41,8 @@
   - Headless Linux no longer hangs on D-Bus; auto-fallback to file backend and timeout guidance for edge cases (fixes #45) — thanks @salmonumbrella.
   - Keyring backend normalization/validation and clearer errors — thanks @salmonumbrella.
   - macOS Keychain: detect “locked” state and offer unlock guidance.
-- Auth: OAuth browser flow now finishes immediately after callback; manual OAuth paste accepts EOF; tokens are stored under the real account email (Google userinfo).
+- Auth: OAuth browser flow now finishes immediately after callback; manual OAuth paste accepts EOF; verify requested account matches authorized email; store tokens under the real account email (Google userinfo).
+- Auth: `gog auth tokens list` filters non-token keyring entries.
 - Gmail: watch push dedupe/historyId sync improvements; List-Unsubscribe extraction; MIME normalization + padded base64url support (#52) — thanks @antons.
 
 ### Changed

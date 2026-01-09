@@ -18,6 +18,7 @@ const (
 	ServiceTasks    Service = "tasks"
 	ServicePeople   Service = "people"
 	ServiceSheets   Service = "sheets"
+	ServiceGroups   Service = "groups"
 	ServiceKeep     Service = "keep"
 )
 
@@ -45,6 +46,7 @@ var serviceOrder = []Service{
 	ServiceTasks,
 	ServiceSheets,
 	ServicePeople,
+	ServiceGroups,
 	ServiceKeep,
 }
 
@@ -105,6 +107,12 @@ var serviceInfoByService = map[Service]serviceInfo{
 		user:   true,
 		apis:   []string{"Sheets API", "Drive API"},
 		note:   "Export via Drive",
+	},
+	ServiceGroups: {
+		scopes: []string{"https://www.googleapis.com/auth/cloud-identity.groups.readonly"},
+		user:   false,
+		apis:   []string{"Cloud Identity API"},
+		note:   "Workspace only",
 	},
 	ServiceKeep: {
 		scopes: []string{"https://www.googleapis.com/auth/keep"},
