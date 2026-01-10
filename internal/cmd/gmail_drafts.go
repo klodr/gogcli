@@ -350,7 +350,7 @@ func buildDraftMessage(ctx context.Context, svc *gmail.Service, account string, 
 		InReplyTo:   inReplyTo,
 		References:  references,
 		Attachments: atts,
-	}, rfc822Config{toPolicy: toOptional})
+	}, &rfc822Config{allowMissingTo: true})
 	if err != nil {
 		return nil, "", err
 	}
@@ -429,7 +429,7 @@ func (c *GmailDraftsCreateCmd) Run(ctx context.Context, flags *RootFlags) error 
 
 type GmailDraftsUpdateCmd struct {
 	DraftID          string   `arg:"" name:"draftId" help:"Draft ID"`
-	To               string   `name:"to" help:"Recipients (comma-separated)"`
+	To               *string  `name:"to" help:"Recipients (comma-separated; omit to keep existing)"`
 	Cc               string   `name:"cc" help:"CC recipients (comma-separated)"`
 	Bcc              string   `name:"bcc" help:"BCC recipients (comma-separated)"`
 	Subject          string   `name:"subject" help:"Subject (required)"`
@@ -457,26 +457,45 @@ func (c *GmailDraftsUpdateCmd) Run(ctx context.Context, flags *RootFlags) error 
 		return err
 	}
 
-	threadID := ""
-	if strings.TrimSpace(c.ReplyToMessageID) == "" {
-		existing, fetchErr := svc.Users.Drafts.Get("me", draftID).Format("metadata").Do()
+	to := ""
+	toWasSet := false
+	if c.To != nil {
+		toWasSet = true
+		to = *c.To
+	}
+
+	existingThreadID := ""
+	existingTo := ""
+	if !toWasSet || strings.TrimSpace(c.ReplyToMessageID) == "" {
+		existing, fetchErr := svc.Users.Drafts.Get("me", draftID).Format("full").Do()
 		if fetchErr != nil {
 			return fetchErr
 		}
 		if existing != nil && existing.Message != nil {
-			threadID = strings.TrimSpace(existing.Message.ThreadId)
+			existingThreadID = strings.TrimSpace(existing.Message.ThreadId)
+			if !toWasSet {
+				existingTo = strings.TrimSpace(headerValue(existing.Message.Payload, "To"))
+			}
 		}
+	}
+	if !toWasSet {
+		to = existingTo
+	}
+
+	replyToThreadID := ""
+	if strings.TrimSpace(c.ReplyToMessageID) == "" {
+		replyToThreadID = existingThreadID
 	}
 
 	input := draftComposeInput{
-		To:               c.To,
+		To:               to,
 		Cc:               c.Cc,
 		Bcc:              c.Bcc,
 		Subject:          c.Subject,
 		Body:             c.Body,
 		BodyHTML:         c.BodyHTML,
 		ReplyToMessageID: c.ReplyToMessageID,
-		ReplyToThreadID:  threadID,
+		ReplyToThreadID:  replyToThreadID,
 		ReplyTo:          c.ReplyTo,
 		Attach:           c.Attach,
 		From:             c.From,

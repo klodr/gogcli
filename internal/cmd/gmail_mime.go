@@ -22,15 +22,8 @@ type mailAttachment struct {
 	Data     []byte
 }
 
-type toPolicy int
-
-const (
-	toRequired toPolicy = iota
-	toOptional
-)
-
 type rfc822Config struct {
-	toPolicy toPolicy
+	allowMissingTo bool
 }
 
 type mailOptions struct {
@@ -48,16 +41,13 @@ type mailOptions struct {
 	Attachments       []mailAttachment
 }
 
-func buildRFC822(opts mailOptions, configs ...rfc822Config) ([]byte, error) {
-	cfg := rfc822Config{toPolicy: toRequired}
-	if len(configs) > 0 {
-		cfg = configs[0]
-	}
+func buildRFC822(opts mailOptions, cfg *rfc822Config) ([]byte, error) {
+	allowMissingTo := cfg != nil && cfg.allowMissingTo
 
 	if strings.TrimSpace(opts.From) == "" {
 		return nil, errors.New("missing From")
 	}
-	if len(opts.To) == 0 && cfg.toPolicy == toRequired {
+	if len(opts.To) == 0 && !allowMissingTo {
 		return nil, errors.New("missing To")
 	}
 	if strings.TrimSpace(opts.Subject) == "" {

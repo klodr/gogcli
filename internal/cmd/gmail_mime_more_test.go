@@ -8,13 +8,13 @@ import (
 )
 
 func TestBuildRFC822_MissingFields(t *testing.T) {
-	if _, err := buildRFC822(mailOptions{To: []string{"c@d.com"}, Subject: "Hi"}); err == nil {
+	if _, err := buildRFC822(mailOptions{To: []string{"c@d.com"}, Subject: "Hi"}, nil); err == nil {
 		t.Fatalf("expected missing From error")
 	}
-	if _, err := buildRFC822(mailOptions{From: "a@b.com", Subject: "Hi"}); err == nil {
+	if _, err := buildRFC822(mailOptions{From: "a@b.com", Subject: "Hi"}, nil); err == nil {
 		t.Fatalf("expected missing To error")
 	}
-	if _, err := buildRFC822(mailOptions{From: "a@b.com", To: []string{"c@d.com"}}); err == nil {
+	if _, err := buildRFC822(mailOptions{From: "a@b.com", To: []string{"c@d.com"}}, nil); err == nil {
 		t.Fatalf("expected missing Subject error")
 	}
 }
@@ -24,7 +24,7 @@ func TestBuildRFC822_AllowMissingTo(t *testing.T) {
 		From:    "a@b.com",
 		Subject: "Hi",
 		Body:    "Hello",
-	}, rfc822Config{toPolicy: toOptional})
+	}, &rfc822Config{allowMissingTo: true})
 	if err != nil {
 		t.Fatalf("buildRFC822: %v", err)
 	}
@@ -38,14 +38,14 @@ func TestBuildRFC822_InvalidHeaders(t *testing.T) {
 		From:    "a@b.com\r\nBcc: evil@evil.com",
 		To:      []string{"c@d.com"},
 		Subject: "Hi",
-	}); err == nil {
+	}, nil); err == nil {
 		t.Fatalf("expected invalid From error")
 	}
 	if _, err := buildRFC822(mailOptions{
 		From:    "a@b.com",
 		To:      []string{"c@d.com\r\n"},
 		Subject: "Hi",
-	}); err == nil {
+	}, nil); err == nil {
 		t.Fatalf("expected invalid address error")
 	}
 	if _, err := buildRFC822(mailOptions{
@@ -55,7 +55,7 @@ func TestBuildRFC822_InvalidHeaders(t *testing.T) {
 		ReplyTo:   "reply@ex\r\nample.com",
 		Body:      "Hello",
 		InReplyTo: "<id>\r\n",
-	}); err == nil {
+	}, nil); err == nil {
 		t.Fatalf("expected invalid Reply-To error")
 	}
 	if _, err := buildRFC822(mailOptions{
@@ -64,7 +64,7 @@ func TestBuildRFC822_InvalidHeaders(t *testing.T) {
 		Subject:    "Hi",
 		References: "<id>\r\n",
 		Body:       "Hello",
-	}); err == nil {
+	}, nil); err == nil {
 		t.Fatalf("expected invalid References error")
 	}
 	if _, err := buildRFC822(mailOptions{
@@ -72,7 +72,7 @@ func TestBuildRFC822_InvalidHeaders(t *testing.T) {
 		To:      []string{"c@d.com"},
 		Subject: "Hi\r\n",
 		Body:    "Hello",
-	}); err == nil {
+	}, nil); err == nil {
 		t.Fatalf("expected invalid Subject error")
 	}
 	if _, err := buildRFC822(mailOptions{
@@ -82,7 +82,7 @@ func TestBuildRFC822_InvalidHeaders(t *testing.T) {
 		AdditionalHeaders: map[string]string{
 			"X-Test": "bad\r\nvalue",
 		},
-	}); err == nil {
+	}, nil); err == nil {
 		t.Fatalf("expected invalid header value error")
 	}
 }
@@ -101,7 +101,7 @@ func TestBuildRFC822_AttachmentFromPath_DefaultMime(t *testing.T) {
 		Attachments: []mailAttachment{
 			{Path: path},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("buildRFC822: %v", err)
 	}
