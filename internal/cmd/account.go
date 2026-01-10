@@ -18,9 +18,10 @@ func requireAccount(flags *RootFlags) (string, error) {
 	}
 
 	if store, err := openSecretsStoreForAccount(); err == nil {
-		if v, err := store.GetDefaultAccount(); err == nil {
-			if v := strings.TrimSpace(v); v != "" {
-				return v, nil
+		if defaultEmail, err := store.GetDefaultAccount(); err == nil {
+			defaultEmail = strings.TrimSpace(defaultEmail)
+			if defaultEmail != "" {
+				return defaultEmail, nil
 			}
 		}
 		if toks, err := store.ListTokens(); err == nil {
