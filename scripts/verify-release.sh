@@ -58,39 +58,68 @@ fi
 
 make ci
 
-sha_url="https://github.com/steipete/gogcli/archive/refs/tags/v${version}.tar.gz"
-sha_file="/tmp/gogcli-${version}.tar.gz"
-rm -f "$sha_file"
-curl -L -o "$sha_file" "$sha_url"
-sha256="$(shasum -a 256 "$sha_file" | awk '{print $1}')"
-
 formula_path="../homebrew-tap/Formula/gogcli.rb"
 if [[ ! -f "$formula_path" ]]; then
   echo "missing formula at $formula_path" >&2
   exit 2
 fi
 
-formula_url="$(rg -m1 '^\s*url ' "$formula_path" | sed -E 's/\s*url "([^"]+)"/\1/' | xargs)"
-formula_sha="$(rg -m1 '^\s*sha256 ' "$formula_path" | sed -E 's/\s*sha256 "([^"]+)"/\1/' | xargs)"
-
-if [[ "$formula_url" != "$sha_url" ]]; then
-  echo "formula url mismatch: $formula_url" >&2
+formula_version="$(awk -F '\"' '/^[[:space:]]*version /{print $2; exit}' "$formula_path" | xargs)"
+if [[ "$formula_version" != "$version" ]]; then
+  echo "formula version mismatch: $formula_version" >&2
   exit 2
 fi
 
-if [[ "$formula_sha" != "$sha256" ]]; then
-  echo "formula sha mismatch: $formula_sha (expected $sha256)" >&2
+tmp_assets_dir="$(mktemp -d -t gogcli-release-assets)"
+gh release download "v$version" -p checksums.txt -D "$tmp_assets_dir" >/dev/null
+checksums_file="$tmp_assets_dir/checksums.txt"
+
+sha_for_asset() {
+  local name="$1"
+  awk -v n="$name" '$2==n {print $1}' "$checksums_file"
+}
+
+formula_sha_for_url() {
+  local url_substr="$1"
+  awk -v s="$url_substr" '
+    index($0, s) {found=1; next}
+    found && $1=="sha256" {gsub(/"/, "", $2); print $2; exit}
+  ' "$formula_path"
+}
+
+darwin_amd64_expected="$(sha_for_asset "gogcli_${version}_darwin_amd64.tar.gz")"
+darwin_arm64_expected="$(sha_for_asset "gogcli_${version}_darwin_arm64.tar.gz")"
+linux_amd64_expected="$(sha_for_asset "gogcli_${version}_linux_amd64.tar.gz")"
+linux_arm64_expected="$(sha_for_asset "gogcli_${version}_linux_arm64.tar.gz")"
+
+darwin_amd64_formula="$(formula_sha_for_url "gogcli_#{version}_darwin_amd64.tar.gz")"
+darwin_arm64_formula="$(formula_sha_for_url "gogcli_#{version}_darwin_arm64.tar.gz")"
+linux_amd64_formula="$(formula_sha_for_url "gogcli_#{version}_linux_amd64.tar.gz")"
+linux_arm64_formula="$(formula_sha_for_url "gogcli_#{version}_linux_arm64.tar.gz")"
+
+if [[ "$darwin_amd64_formula" != "$darwin_amd64_expected" ]]; then
+  echo "formula sha mismatch (darwin_amd64): $darwin_amd64_formula (expected $darwin_amd64_expected)" >&2
+  exit 2
+fi
+if [[ "$darwin_arm64_formula" != "$darwin_arm64_expected" ]]; then
+  echo "formula sha mismatch (darwin_arm64): $darwin_arm64_formula (expected $darwin_arm64_expected)" >&2
+  exit 2
+fi
+if [[ "$linux_amd64_formula" != "$linux_amd64_expected" ]]; then
+  echo "formula sha mismatch (linux_amd64): $linux_amd64_formula (expected $linux_amd64_expected)" >&2
+  exit 2
+fi
+if [[ "$linux_arm64_formula" != "$linux_arm64_expected" ]]; then
+  echo "formula sha mismatch (linux_arm64): $linux_arm64_formula (expected $linux_arm64_expected)" >&2
   exit 2
 fi
 
-brew update
-brew uninstall gogcli || true
-brew untap steipete/tap || true
-brew tap steipete/tap
-brew install steipete/tap/gogcli
+brew update >/dev/null
+brew upgrade gogcli || brew install steipete/tap/gogcli
 brew test steipete/tap/gogcli
-gog --help
+gog --version
 
-rm -f "$notes_file" "$sha_file"
+rm -rf "$tmp_assets_dir"
+rm -f "$notes_file"
 
 echo "Release v$version verified (CI, GitHub release notes/assets, Homebrew install/test)."
