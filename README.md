@@ -18,6 +18,8 @@ Google in your terminal — CLI for Gmail, Calendar, Drive, Docs, Slides, Sheets
 - **Multiple accounts** - manage multiple Google accounts simultaneously
 - **Secure credential storage** using OS keyring or encrypted on-disk keyring (configurable)
 - **Auto-refreshing tokens** - authenticate once, use indefinitely
+- **Least-privilege auth** - `--readonly` and `--drive-scope` to request fewer scopes
+- **Workspace service accounts** - domain-wide delegation auth (preferred when configured)
 - **Parseable output** - JSON mode for scripting and automation
 
 ## Installation
@@ -114,6 +116,8 @@ Verify tokens are usable (helps spot revoked/expired tokens):
 ```bash
 gog auth list --check
 ```
+
+Accounts can be authorized either via OAuth refresh tokens or Workspace service accounts (domain-wide delegation). If a service account key is configured for an account, it takes precedence over OAuth refresh tokens (see `gog auth list`).
 
 Show current auth state/services for the active account:
 
@@ -290,7 +294,7 @@ gog auth list
 Keep requires Workspace + domain-wide delegation. You can configure it via the generic service-account command above (recommended), or the legacy Keep helper:
 
 ```bash
-gog auth keep you@yourdomain.com --key ~/Downloads/service-account.json
+gog auth service-account set you@yourdomain.com --key ~/Downloads/service-account.json
 gog keep list --account you@yourdomain.com
 gog keep get <noteId> --account you@yourdomain.com
 ```
