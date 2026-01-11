@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -139,6 +140,79 @@ func KeepServiceAccountLegacyPath(email string) (string, error) {
 	}
 
 	return filepath.Join(dir, fmt.Sprintf("keep-sa-%s.json", email)), nil
+}
+
+func ServiceAccountPath(email string) (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+
+	safeEmail := base64.RawURLEncoding.EncodeToString([]byte(strings.ToLower(strings.TrimSpace(email))))
+
+	return filepath.Join(dir, fmt.Sprintf("sa-%s.json", safeEmail)), nil
+}
+
+func ListServiceAccountEmails() ([]string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("read config dir: %w", err)
+	}
+
+	out := make([]string, 0, len(entries))
+
+	seen := make(map[string]struct{})
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		email := ""
+
+		switch {
+		case strings.HasPrefix(name, "sa-") && strings.HasSuffix(name, ".json"):
+			enc := strings.TrimSuffix(strings.TrimPrefix(name, "sa-"), ".json")
+			if b, err := base64.RawURLEncoding.DecodeString(enc); err == nil {
+				email = strings.TrimSpace(string(b))
+			}
+		case strings.HasPrefix(name, "keep-sa-") && strings.HasSuffix(name, ".json"):
+			enc := strings.TrimSuffix(strings.TrimPrefix(name, "keep-sa-"), ".json")
+			if b, err := base64.RawURLEncoding.DecodeString(enc); err == nil {
+				email = strings.TrimSpace(string(b))
+			} else {
+				// Legacy (pre-safe-filename) format stored the raw email in the filename.
+				email = strings.TrimSpace(enc)
+			}
+		default:
+			continue
+		}
+
+		email = strings.ToLower(strings.TrimSpace(email))
+		if email == "" {
+			continue
+		}
+
+		if _, ok := seen[email]; ok {
+			continue
+		}
+		seen[email] = struct{}{}
+
+		out = append(out, email)
+	}
+
+	sort.Strings(out)
+
+	return out, nil
 }
 
 func EnsureGmailWatchDir() (string, error) {

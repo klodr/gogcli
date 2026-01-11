@@ -169,7 +169,7 @@ func TestAuthStatusCmd_JSON(t *testing.T) {
 
 	cmd := AuthStatusCmd{}
 	out := captureStdout(t, func() {
-		if err := cmd.Run(ctx); err != nil {
+		if err := cmd.Run(ctx, &RootFlags{}); err != nil {
 			t.Fatalf("AuthStatusCmd: %v", err)
 		}
 	})

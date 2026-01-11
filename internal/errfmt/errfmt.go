@@ -27,7 +27,14 @@ func Format(err error) string {
 
 	var authErr *gogapi.AuthRequiredError
 	if errors.As(err, &authErr) {
-		return fmt.Sprintf("No refresh token for %s %s. Run: gog auth add %s --services %s", authErr.Service, authErr.Email, authErr.Email, authErr.Service)
+		return fmt.Sprintf(
+			"No auth for %s %s.\n\nOAuth (browser flow):\n  gog auth add %s --services %s\n\nWorkspace service account (domain-wide delegation):\n  gog auth service-account set %s --key <service-account.json>",
+			authErr.Service,
+			authErr.Email,
+			authErr.Email,
+			authErr.Service,
+			authErr.Email,
+		)
 	}
 
 	var credErr *config.CredentialsMissingError

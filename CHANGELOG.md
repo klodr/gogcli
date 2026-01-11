@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Auth: Workspace service accounts (domain-wide delegation) for all services via `gog auth service-account ...` (preferred when configured). (#54) — thanks @pvieito.
+
 ### Fixed
 
 - Sheets: `gog auth add --services sheets --readonly` now includes Drive read-only scope so `gog sheets export` works. (#62)

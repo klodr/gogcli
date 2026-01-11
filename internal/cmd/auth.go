@@ -42,17 +42,24 @@ func normalizeEmail(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
+const (
+	authTypeOAuth               = "oauth"
+	authTypeServiceAccount      = "service_account"
+	authTypeOAuthServiceAccount = "oauth+service_account"
+)
+
 type AuthCmd struct {
-	Credentials AuthCredentialsCmd `cmd:"" name:"credentials" help:"Store OAuth client credentials"`
-	Add         AuthAddCmd         `cmd:"" name:"add" help:"Authorize and store a refresh token"`
-	Services    AuthServicesCmd    `cmd:"" name:"services" help:"List supported auth services and scopes"`
-	List        AuthListCmd        `cmd:"" name:"list" help:"List stored accounts"`
-	Status      AuthStatusCmd      `cmd:"" name:"status" help:"Show auth configuration and keyring backend"`
-	Keyring     AuthKeyringCmd     `cmd:"" name:"keyring" help:"Configure keyring backend"`
-	Remove      AuthRemoveCmd      `cmd:"" name:"remove" help:"Remove a stored refresh token"`
-	Tokens      AuthTokensCmd      `cmd:"" name:"tokens" help:"Manage stored refresh tokens"`
-	Manage      AuthManageCmd      `cmd:"" name:"manage" help:"Open accounts manager in browser" aliases:"login"`
-	Keep        AuthKeepCmd        `cmd:"" name:"keep" help:"Configure service account for Google Keep (Workspace only)"`
+	Credentials AuthCredentialsCmd    `cmd:"" name:"credentials" help:"Store OAuth client credentials"`
+	Add         AuthAddCmd            `cmd:"" name:"add" help:"Authorize and store a refresh token"`
+	Services    AuthServicesCmd       `cmd:"" name:"services" help:"List supported auth services and scopes"`
+	List        AuthListCmd           `cmd:"" name:"list" help:"List stored accounts"`
+	Status      AuthStatusCmd         `cmd:"" name:"status" help:"Show auth configuration and keyring backend"`
+	Keyring     AuthKeyringCmd        `cmd:"" name:"keyring" help:"Configure keyring backend"`
+	Remove      AuthRemoveCmd         `cmd:"" name:"remove" help:"Remove a stored refresh token"`
+	Tokens      AuthTokensCmd         `cmd:"" name:"tokens" help:"Manage stored refresh tokens"`
+	Manage      AuthManageCmd         `cmd:"" name:"manage" help:"Open accounts manager in browser" aliases:"login"`
+	ServiceAcct AuthServiceAccountCmd `cmd:"" name:"service-account" help:"Configure service account (Workspace only; domain-wide delegation)"`
+	Keep        AuthKeepCmd           `cmd:"" name:"keep" help:"Configure service account for Google Keep (Workspace only)"`
 }
 
 type AuthCredentialsCmd struct {
@@ -340,7 +347,7 @@ type AuthAddCmd struct {
 	Email        string `arg:"" name:"email" help:"Email"`
 	Manual       bool   `name:"manual" help:"Browserless auth flow (paste redirect URL)"`
 	ForceConsent bool   `name:"force-consent" help:"Force consent screen to obtain a refresh token"`
-	ServicesCSV  string `name:"services" help:"Services to authorize: user|all or comma-separated ${auth_services} (Keep uses service account: gog auth keep)" default:"user"`
+	ServicesCSV  string `name:"services" help:"Services to authorize: user|all or comma-separated ${auth_services} (Keep uses service account: gog auth service-account set)" default:"user"`
 	Readonly     bool   `name:"readonly" help:"Use read-only scopes where available (still includes OIDC identity scopes)"`
 	DriveScope   string `name:"drive-scope" help:"Drive scope mode: full|readonly|file" enum:"full,readonly,file" default:"full"`
 }
@@ -427,7 +434,7 @@ type AuthListCmd struct {
 
 type AuthStatusCmd struct{}
 
-func (c *AuthStatusCmd) Run(ctx context.Context) error {
+func (c *AuthStatusCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
 	configPath, err := config.ConfigPath()
 	if err != nil {
@@ -441,6 +448,27 @@ func (c *AuthStatusCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	account := ""
+	authPreferred := ""
+	serviceAccountConfigured := false
+	serviceAccountPath := ""
+
+	if flags != nil {
+		if a, err := requireAccount(flags); err == nil {
+			account = a
+			if p, _, ok := bestServiceAccountPathAndMtime(normalizeEmail(account)); ok {
+				serviceAccountConfigured = true
+				serviceAccountPath = p
+			}
+			if serviceAccountConfigured {
+				authPreferred = authTypeServiceAccount
+			} else {
+				authPreferred = authTypeOAuth
+			}
+		}
+	}
+
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(os.Stdout, map[string]any{
 			"config": map[string]any{
@@ -451,12 +479,26 @@ func (c *AuthStatusCmd) Run(ctx context.Context) error {
 				"backend": backendInfo.Value,
 				"source":  backendInfo.Source,
 			},
+			"account": map[string]any{
+				"email":                      account,
+				"auth_preferred":             authPreferred,
+				"service_account_configured": serviceAccountConfigured,
+				"service_account_path":       serviceAccountPath,
+			},
 		})
 	}
 	u.Out().Printf("config_path\t%s", configPath)
 	u.Out().Printf("config_exists\t%t", configExists)
 	u.Out().Printf("keyring_backend\t%s", backendInfo.Value)
 	u.Out().Printf("keyring_backend_source\t%s", backendInfo.Source)
+	if account != "" {
+		u.Out().Printf("account\t%s", account)
+		u.Out().Printf("auth_preferred\t%s", authPreferred)
+		u.Out().Printf("service_account_configured\t%t", serviceAccountConfigured)
+		if serviceAccountPath != "" {
+			u.Out().Printf("service_account_path\t%s", serviceAccountPath)
+		}
+	}
 	return nil
 }
 
@@ -470,62 +512,195 @@ func (c *AuthListCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	serviceAccountEmails, err := config.ListServiceAccountEmails()
+	if err != nil {
+		return err
+	}
+
 	sort.Slice(tokens, func(i, j int) bool { return tokens[i].Email < tokens[j].Email })
+
+	type tokenByEmail struct {
+		tok secrets.Token
+		ok  bool
+	}
+	tokMap := make(map[string]tokenByEmail, len(tokens))
+	for _, t := range tokens {
+		email := normalizeEmail(t.Email)
+		if email == "" {
+			continue
+		}
+		tokMap[email] = tokenByEmail{tok: t, ok: true}
+	}
+
+	type entry struct {
+		Email string
+		Token *secrets.Token
+		SA    bool
+	}
+	entries := make([]entry, 0, len(tokens)+len(serviceAccountEmails))
+	seen := make(map[string]struct{})
+	for _, email := range serviceAccountEmails {
+		email = normalizeEmail(email)
+		if email == "" {
+			continue
+		}
+		if _, ok := seen[email]; ok {
+			continue
+		}
+		seen[email] = struct{}{}
+		te := tokMap[email]
+		var tok *secrets.Token
+		if te.ok {
+			t := te.tok
+			tok = &t
+		}
+		entries = append(entries, entry{Email: email, Token: tok, SA: true})
+	}
+	for _, t := range tokens {
+		email := normalizeEmail(t.Email)
+		if email == "" {
+			continue
+		}
+		if _, ok := seen[email]; ok {
+			continue
+		}
+		seen[email] = struct{}{}
+		t2 := t
+		entries = append(entries, entry{Email: email, Token: &t2, SA: false})
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Email < entries[j].Email })
+
 	if outfmt.IsJSON(ctx) {
 		type item struct {
 			Email     string   `json:"email"`
 			Services  []string `json:"services,omitempty"`
 			Scopes    []string `json:"scopes,omitempty"`
 			CreatedAt string   `json:"created_at,omitempty"`
+			Auth      string   `json:"auth"`
 			Valid     *bool    `json:"valid,omitempty"`
 			Error     string   `json:"error,omitempty"`
 		}
-		out := make([]item, 0, len(tokens))
-		for _, t := range tokens {
-			created := ""
-			if !t.CreatedAt.IsZero() {
-				created = t.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00")
+		out := make([]item, 0, len(entries))
+		for _, e := range entries {
+			auth := authTypeOAuth
+			if e.SA {
+				auth = authTypeServiceAccount
 			}
+			if e.Token != nil && e.SA {
+				auth = authTypeOAuthServiceAccount
+			}
+
+			created := ""
+			services := []string(nil)
+			scopes := []string(nil)
+
+			if e.Token != nil {
+				if !e.Token.CreatedAt.IsZero() {
+					created = e.Token.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00")
+				}
+				services = e.Token.Services
+				scopes = e.Token.Scopes
+			} else if e.SA {
+				if p, mtime, ok := bestServiceAccountPathAndMtime(e.Email); ok {
+					_ = p
+					created = mtime.UTC().Format("2006-01-02T15:04:05Z07:00")
+				}
+				services = []string{"service-account"}
+			}
+
 			it := item{
-				Email:     t.Email,
-				Services:  t.Services,
-				Scopes:    t.Scopes,
+				Email:     e.Email,
+				Services:  services,
+				Scopes:    scopes,
 				CreatedAt: created,
+				Auth:      auth,
 			}
 			if c.Check {
-				err := checkRefreshToken(ctx, t.RefreshToken, t.Scopes, c.Timeout)
-				valid := err == nil
-				it.Valid = &valid
-				if err != nil {
-					it.Error = err.Error()
+				if e.Token == nil {
+					valid := true
+					it.Valid = &valid
+					it.Error = "service account (not checked)"
+				} else {
+					err := checkRefreshToken(ctx, e.Token.RefreshToken, e.Token.Scopes, c.Timeout)
+					valid := err == nil
+					it.Valid = &valid
+					if err != nil {
+						it.Error = err.Error()
+					}
 				}
 			}
 			out = append(out, it)
 		}
 		return outfmt.WriteJSON(os.Stdout, map[string]any{"accounts": out})
 	}
-	if len(tokens) == 0 {
+	if len(entries) == 0 {
 		u.Err().Println("No tokens stored")
 		return nil
 	}
-	for _, t := range tokens {
-		created := ""
-		if !t.CreatedAt.IsZero() {
-			created = t.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00")
+
+	for _, e := range entries {
+		auth := authTypeOAuth
+		if e.SA {
+			auth = authTypeServiceAccount
 		}
+		if e.Token != nil && e.SA {
+			auth = authTypeOAuthServiceAccount
+		}
+
+		created := ""
+		servicesCSV := ""
+
+		if e.Token != nil {
+			if !e.Token.CreatedAt.IsZero() {
+				created = e.Token.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00")
+			}
+			servicesCSV = strings.Join(e.Token.Services, ",")
+		} else if e.SA {
+			if _, mtime, ok := bestServiceAccountPathAndMtime(e.Email); ok {
+				created = mtime.UTC().Format("2006-01-02T15:04:05Z07:00")
+			}
+			servicesCSV = "service-account"
+		}
+
 		if c.Check {
-			err := checkRefreshToken(ctx, t.RefreshToken, t.Scopes, c.Timeout)
+			if e.Token == nil {
+				u.Out().Printf("%s\t%s\t%s\t%t\t%s\t%s", e.Email, servicesCSV, created, true, "service account (not checked)", auth)
+				continue
+			}
+
+			err := checkRefreshToken(ctx, e.Token.RefreshToken, e.Token.Scopes, c.Timeout)
 			valid := err == nil
 			msg := ""
 			if err != nil {
 				msg = err.Error()
 			}
-			u.Out().Printf("%s\t%s\t%s\t%t\t%s", t.Email, strings.Join(t.Services, ","), created, valid, msg)
+			u.Out().Printf("%s\t%s\t%s\t%t\t%s\t%s", e.Email, servicesCSV, created, valid, msg, auth)
 			continue
 		}
-		u.Out().Printf("%s\t%s\t%s", t.Email, strings.Join(t.Services, ","), created)
+
+		u.Out().Printf("%s\t%s\t%s\t%s", e.Email, servicesCSV, created, auth)
 	}
 	return nil
+}
+
+func bestServiceAccountPathAndMtime(email string) (string, time.Time, bool) {
+	if p, err := config.ServiceAccountPath(email); err == nil {
+		if st, err := os.Stat(p); err == nil {
+			return p, st.ModTime(), true
+		}
+	}
+	if p, err := config.KeepServiceAccountPath(email); err == nil {
+		if st, err := os.Stat(p); err == nil {
+			return p, st.ModTime(), true
+		}
+	}
+	if p, err := config.KeepServiceAccountLegacyPath(email); err == nil {
+		if st, err := os.Stat(p); err == nil {
+			return p, st.ModTime(), true
+		}
+	}
+	return "", time.Time{}, false
 }
 
 type AuthServicesCmd struct {
@@ -594,7 +769,7 @@ func (c *AuthRemoveCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 type AuthManageCmd struct {
 	ForceConsent bool          `name:"force-consent" help:"Force consent screen when adding accounts"`
-	ServicesCSV  string        `name:"services" help:"Services to authorize: user|all or comma-separated ${auth_services} (Keep uses service account: gog auth keep)" default:"user"`
+	ServicesCSV  string        `name:"services" help:"Services to authorize: user|all or comma-separated ${auth_services} (Keep uses service account: gog auth service-account set)" default:"user"`
 	Timeout      time.Duration `name:"timeout" help:"Server timeout duration" default:"10m"`
 }
 
@@ -638,15 +813,15 @@ func (c *AuthKeepCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("read service account key: %w", err)
 	}
 
-	var saJSON map[string]any
-	if unmarshalErr := json.Unmarshal(data, &saJSON); unmarshalErr != nil {
-		return fmt.Errorf("invalid service account JSON: %w", unmarshalErr)
-	}
-	if saJSON["type"] != "service_account" {
-		return fmt.Errorf("invalid service account JSON: expected type=service_account")
+	if _, parseErr := parseServiceAccountJSON(data); parseErr != nil {
+		return parseErr
 	}
 
 	destPath, err := config.KeepServiceAccountPath(email)
+	if err != nil {
+		return err
+	}
+	genericPath, err := config.ServiceAccountPath(email)
 	if err != nil {
 		return err
 	}
@@ -658,12 +833,16 @@ func (c *AuthKeepCmd) Run(ctx context.Context) error {
 	if err := os.WriteFile(destPath, data, 0o600); err != nil {
 		return fmt.Errorf("write service account: %w", err)
 	}
+	if err := os.WriteFile(genericPath, data, 0o600); err != nil {
+		return fmt.Errorf("write service account: %w", err)
+	}
 
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(os.Stdout, map[string]any{
 			"stored": true,
 			"email":  email,
 			"path":   destPath,
+			"paths":  []string{destPath, genericPath},
 		})
 	}
 	u.Out().Printf("email\t%s", email)
@@ -687,7 +866,7 @@ func parseAuthServices(servicesCSV string) ([]googleauth.Service, error) {
 			return nil, err
 		}
 		if svc == googleauth.ServiceKeep {
-			return nil, usage("Keep auth is Workspace-only and requires a service account. Use: gog auth keep <email> --key <service-account.json>")
+			return nil, usage("Keep auth is Workspace-only and requires a service account. Use: gog auth service-account set <email> --key <service-account.json>")
 		}
 		if _, ok := seen[svc]; ok {
 			continue

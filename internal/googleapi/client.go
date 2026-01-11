@@ -81,30 +81,12 @@ func tokenSourceForAccountScopes(ctx context.Context, serviceLabel string, email
 }
 
 func optionsForAccount(ctx context.Context, service googleauth.Service, email string) ([]option.ClientOption, error) {
-	slog.Debug("creating client options", "service", service, "email", email)
-
-	ts, err := tokenSourceForAccount(ctx, service, email)
+	scopes, err := googleauth.Scopes(service)
 	if err != nil {
-		return nil, fmt.Errorf("token source: %w", err)
-	}
-	baseTransport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		},
-	}
-	// Wrap with retry logic for 429 and 5xx errors
-	retryTransport := NewRetryTransport(&oauth2.Transport{
-		Source: ts,
-		Base:   baseTransport,
-	})
-	c := &http.Client{
-		Transport: retryTransport,
-		Timeout:   defaultHTTPTimeout,
+		return nil, fmt.Errorf("resolve scopes: %w", err)
 	}
 
-	slog.Debug("client options created successfully", "service", service, "email", email)
-
-	return []option.ClientOption{option.WithHTTPClient(c)}, nil
+	return optionsForAccountScopes(ctx, string(service), email, scopes)
 }
 
 func optionsForAccountScopes(ctx context.Context, serviceLabel string, email string, scopes []string) ([]option.ClientOption, error) {
@@ -112,18 +94,25 @@ func optionsForAccountScopes(ctx context.Context, serviceLabel string, email str
 
 	var creds config.ClientCredentials
 
-	if c, err := readClientCredentials(); err != nil {
-		return nil, fmt.Errorf("read credentials: %w", err)
-	} else {
-		creds = c
-	}
-
 	var ts oauth2.TokenSource
 
-	if tokenSource, err := tokenSourceForAccountScopes(ctx, serviceLabel, email, creds.ClientID, creds.ClientSecret, scopes); err != nil {
-		return nil, fmt.Errorf("token source: %w", err)
+	if serviceAccountTS, saPath, ok, err := tokenSourceForServiceAccountScopes(ctx, email, scopes); err != nil {
+		return nil, fmt.Errorf("service account token source: %w", err)
+	} else if ok {
+		slog.Debug("using service account credentials", "email", email, "path", saPath)
+		ts = serviceAccountTS
 	} else {
-		ts = tokenSource
+		if c, err := readClientCredentials(); err != nil {
+			return nil, fmt.Errorf("read credentials: %w", err)
+		} else {
+			creds = c
+		}
+
+		if tokenSource, err := tokenSourceForAccountScopes(ctx, serviceLabel, email, creds.ClientID, creds.ClientSecret, scopes); err != nil {
+			return nil, fmt.Errorf("token source: %w", err)
+		} else {
+			ts = tokenSource
+		}
 	}
 	baseTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{

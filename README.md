@@ -242,12 +242,52 @@ Service scope matrix (auto-generated; run `go run scripts/gen-auth-services-md.g
 | sheets | yes | Sheets API, Drive API | `https://www.googleapis.com/auth/drive`<br>`https://www.googleapis.com/auth/spreadsheets` | Export via Drive |
 | people | yes | People API | `profile` | OIDC profile scope |
 | groups | no | Cloud Identity API | `https://www.googleapis.com/auth/cloud-identity.groups.readonly` | Workspace only |
-| keep | no | Keep API | `https://www.googleapis.com/auth/keep` | Workspace only; service account |
+| keep | no | Keep API | `https://www.googleapis.com/auth/keep` | Workspace only; service account (domain-wide delegation) |
 <!-- auth-services:end -->
+
+### Service Accounts (Workspace only)
+
+A service account is a non-human Google identity that belongs to a Google Cloud project. In Google Workspace, a service account can impersonate a user via **domain-wide delegation** (admin-controlled) and access APIs like Gmail/Calendar/Drive as that user.
+
+In `gog`, service accounts are an **optional auth method** that can be configured per account email. If a service account key is configured for an account, it takes precedence over OAuth refresh tokens (see `gog auth list`).
+
+#### 1) Create a Service Account (Google Cloud)
+
+1. Create (or pick) a Google Cloud project.
+2. Enable the APIs you’ll use (e.g. Gmail, Calendar, Drive, Sheets, Docs, People, Tasks, Cloud Identity).
+3. Go to **IAM & Admin → Service Accounts** and create a service account.
+4. In the service account details, enable **Domain-wide delegation**.
+5. Create a key (**Keys → Add key → Create new key → JSON**) and download the JSON key file.
+
+#### 2) Allowlist scopes (Google Workspace Admin Console)
+
+Domain-wide delegation is enforced by Workspace admin settings.
+
+1. Open **Admin console → Security → API controls → Domain-wide delegation**.
+2. Add a new API client:
+   - Client ID: use the service account’s “Client ID” from Google Cloud.
+   - OAuth scopes: comma-separated list of scopes you want to allow (copy from `gog auth services` and/or your `gog auth add --services ...` usage).
+
+If a scope is missing from the allowlist, service-account token minting can fail (or API calls will 403 with insufficient permissions).
+
+#### 3) Configure `gog` to use the service account
+
+Store the key for the user you want to impersonate:
+
+```bash
+gog auth service-account set you@yourdomain.com --key ~/Downloads/service-account.json
+```
+
+Verify `gog` is preferring the service account for that account:
+
+```bash
+gog --account you@yourdomain.com auth status
+gog auth list
+```
 
 ### Google Keep (Workspace only)
 
-The Google Keep API requires a service account with domain-wide delegation (Workspace).
+Keep requires Workspace + domain-wide delegation. You can configure it via the generic service-account command above (recommended), or the legacy Keep helper:
 
 ```bash
 gog auth keep you@yourdomain.com --key ~/Downloads/service-account.json
@@ -324,7 +364,10 @@ Flag aliases:
 ```bash
 gog auth credentials <path>           # Store OAuth client credentials
 gog auth add <email>                  # Authorize and store refresh token
-gog auth keep <email> --key <path>    # Configure service account for Keep (Workspace only)
+gog auth service-account set <email> --key <path>  # Configure service account impersonation (Workspace only)
+gog auth service-account status <email>            # Show service account status
+gog auth service-account unset <email>             # Remove service account
+gog auth keep <email> --key <path>                 # Legacy alias (Keep)
 gog auth keyring [backend]            # Show/set keyring backend (auto|keychain|file)
 gog auth status                       # Show current auth state/services
 gog auth services                     # List available services and OAuth scopes

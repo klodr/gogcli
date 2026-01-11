@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/base64"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -82,5 +83,54 @@ func TestKeepServiceAccountPath(t *testing.T) {
 	expected := base64.RawURLEncoding.EncodeToString([]byte("a@b.com"))
 	if !strings.Contains(filepath.Base(path), "keep-sa-"+expected) {
 		t.Fatalf("unexpected service account path: %q", filepath.Base(path))
+	}
+}
+
+func TestServiceAccountPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
+
+	path, err := ServiceAccountPath("A@B.com")
+	if err != nil {
+		t.Fatalf("ServiceAccountPath: %v", err)
+	}
+
+	expected := base64.RawURLEncoding.EncodeToString([]byte("a@b.com"))
+	if !strings.Contains(filepath.Base(path), "sa-"+expected) {
+		t.Fatalf("unexpected service account path: %q", filepath.Base(path))
+	}
+}
+
+func TestListServiceAccountEmails(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
+
+	dir, err := EnsureDir()
+	if err != nil {
+		t.Fatalf("EnsureDir: %v", err)
+	}
+
+	enc := base64.RawURLEncoding.EncodeToString([]byte("user@example.com"))
+	if writeErr := os.WriteFile(filepath.Join(dir, "sa-"+enc+".json"), []byte(`{"type":"service_account"}`), 0o600); writeErr != nil {
+		t.Fatalf("write sa file: %v", writeErr)
+	}
+
+	if writeErr := os.WriteFile(filepath.Join(dir, "keep-sa-"+enc+".json"), []byte(`{"type":"service_account"}`), 0o600); writeErr != nil {
+		t.Fatalf("write keep-sa file: %v", writeErr)
+	}
+
+	if writeErr := os.WriteFile(filepath.Join(dir, "keep-sa-Other@Example.com.json"), []byte(`{"type":"service_account"}`), 0o600); writeErr != nil {
+		t.Fatalf("write legacy keep-sa file: %v", writeErr)
+	}
+
+	emails, err := ListServiceAccountEmails()
+	if err != nil {
+		t.Fatalf("ListServiceAccountEmails: %v", err)
+	}
+
+	if !strings.Contains(strings.Join(emails, ","), "user@example.com") || !strings.Contains(strings.Join(emails, ","), "other@example.com") {
+		t.Fatalf("unexpected emails: %#v", emails)
 	}
 }

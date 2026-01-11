@@ -3,9 +3,12 @@ package googleapi
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/99designs/keyring"
+	"golang.org/x/oauth2"
 
 	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/googleauth"
@@ -175,6 +178,76 @@ func TestOptionsForAccount_HappyPath(t *testing.T) {
 	opts, err := optionsForAccount(context.Background(), googleauth.ServiceDrive, "a@b.com")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
+	}
+
+	if len(opts) == 0 {
+		t.Fatalf("expected client options")
+	}
+}
+
+func TestOptionsForAccountScopes_ServiceAccountPreferred(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
+
+	saPath, err := config.ServiceAccountPath("a@b.com")
+	if err != nil {
+		t.Fatalf("ServiceAccountPath: %v", err)
+	}
+
+	if _, ensureErr := config.EnsureDir(); ensureErr != nil {
+		t.Fatalf("EnsureDir: %v", ensureErr)
+	}
+
+	if writeErr := os.WriteFile(saPath, []byte(`{"type":"service_account"}`), 0o600); writeErr != nil {
+		t.Fatalf("write sa: %v", writeErr)
+	}
+
+	origRead := readClientCredentials
+	origOpen := openSecretsStore
+	origSA := newServiceAccountTokenSource
+
+	t.Cleanup(func() {
+		readClientCredentials = origRead
+		openSecretsStore = origOpen
+		newServiceAccountTokenSource = origSA
+	})
+
+	readClientCredentials = func() (config.ClientCredentials, error) {
+		t.Fatalf("readClientCredentials should not be called")
+		return config.ClientCredentials{}, nil
+	}
+	openSecretsStore = func() (secrets.Store, error) {
+		t.Fatalf("openSecretsStore should not be called")
+		return nil, errBoom
+	}
+
+	called := false
+	newServiceAccountTokenSource = func(_ context.Context, keyJSON []byte, subject string, scopes []string) (oauth2.TokenSource, error) {
+		called = true
+
+		if subject != "a@b.com" {
+			t.Fatalf("unexpected subject: %q", subject)
+		}
+
+		if len(scopes) != 1 || scopes[0] != "s1" {
+			t.Fatalf("unexpected scopes: %#v", scopes)
+		}
+
+		if string(keyJSON) == "" {
+			t.Fatalf("expected keyJSON")
+		}
+
+		return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "t"}), nil
+	}
+
+	opts, err := optionsForAccountScopes(context.Background(), "svc", "a@b.com", []string{"s1"})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	if !called {
+		t.Fatalf("expected service account token source used")
 	}
 
 	if len(opts) == 0 {
