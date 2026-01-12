@@ -58,6 +58,7 @@ type DriveCmd struct {
 	Permissions DrivePermissionsCmd `cmd:"" name:"permissions" help:"List permissions on a file"`
 	URL         DriveURLCmd         `cmd:"" name:"url" help:"Print web URLs for files"`
 	Comments    DriveCommentsCmd    `cmd:"" name:"comments" help:"Manage comments on files"`
+	Drives      DriveDrivesCmd      `cmd:"" name:"drives" help:"List shared drives (Team Drives)"`
 }
 
 type DriveLsCmd struct {
