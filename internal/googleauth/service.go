@@ -10,16 +10,17 @@ import (
 type Service string
 
 const (
-	ServiceGmail    Service = "gmail"
-	ServiceCalendar Service = "calendar"
-	ServiceDrive    Service = "drive"
-	ServiceDocs     Service = "docs"
-	ServiceContacts Service = "contacts"
-	ServiceTasks    Service = "tasks"
-	ServicePeople   Service = "people"
-	ServiceSheets   Service = "sheets"
-	ServiceGroups   Service = "groups"
-	ServiceKeep     Service = "keep"
+	ServiceGmail     Service = "gmail"
+	ServiceCalendar  Service = "calendar"
+	ServiceClassroom Service = "classroom"
+	ServiceDrive     Service = "drive"
+	ServiceDocs      Service = "docs"
+	ServiceContacts  Service = "contacts"
+	ServiceTasks     Service = "tasks"
+	ServicePeople    Service = "people"
+	ServiceSheets    Service = "sheets"
+	ServiceGroups    Service = "groups"
+	ServiceKeep      Service = "keep"
 )
 
 const (
@@ -56,6 +57,7 @@ type serviceInfo struct {
 var serviceOrder = []Service{
 	ServiceGmail,
 	ServiceCalendar,
+	ServiceClassroom,
 	ServiceDrive,
 	ServiceDocs,
 	ServiceContacts,
@@ -80,6 +82,21 @@ var serviceInfoByService = map[Service]serviceInfo{
 		scopes: []string{"https://www.googleapis.com/auth/calendar"},
 		user:   true,
 		apis:   []string{"Calendar API"},
+	},
+	ServiceClassroom: {
+		scopes: []string{
+			"https://www.googleapis.com/auth/classroom.courses",
+			"https://www.googleapis.com/auth/classroom.rosters",
+			"https://www.googleapis.com/auth/classroom.coursework.students",
+			"https://www.googleapis.com/auth/classroom.coursework.me",
+			"https://www.googleapis.com/auth/classroom.announcements",
+			"https://www.googleapis.com/auth/classroom.topics",
+			"https://www.googleapis.com/auth/classroom.guardianlinks.students",
+			"https://www.googleapis.com/auth/classroom.profile.emails",
+			"https://www.googleapis.com/auth/classroom.profile.photos",
+		},
+		user: true,
+		apis: []string{"Classroom API"},
 	},
 	ServiceDrive: {
 		scopes: []string{"https://www.googleapis.com/auth/drive"},
@@ -342,6 +359,22 @@ func scopesForServiceWithOptions(service Service, opts ScopeOptions) ([]string, 
 	case ServiceCalendar:
 		if opts.Readonly {
 			return []string{"https://www.googleapis.com/auth/calendar.readonly"}, nil
+		}
+
+		return Scopes(service)
+	case ServiceClassroom:
+		if opts.Readonly {
+			return []string{
+				"https://www.googleapis.com/auth/classroom.courses.readonly",
+				"https://www.googleapis.com/auth/classroom.rosters.readonly",
+				"https://www.googleapis.com/auth/classroom.coursework.students.readonly",
+				"https://www.googleapis.com/auth/classroom.coursework.me.readonly",
+				"https://www.googleapis.com/auth/classroom.announcements.readonly",
+				"https://www.googleapis.com/auth/classroom.topics.readonly",
+				"https://www.googleapis.com/auth/classroom.guardianlinks.students.readonly",
+				"https://www.googleapis.com/auth/classroom.profile.emails",
+				"https://www.googleapis.com/auth/classroom.profile.photos",
+			}, nil
 		}
 
 		return Scopes(service)
