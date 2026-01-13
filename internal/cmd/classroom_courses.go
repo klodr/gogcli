@@ -22,6 +22,7 @@ type ClassroomCoursesCmd struct {
 	Unarchive ClassroomCoursesUnarchiveCmd `cmd:"" help:"Unarchive a course"`
 	Join      ClassroomCoursesJoinCmd      `cmd:"" help:"Join a course"`
 	Leave     ClassroomCoursesLeaveCmd     `cmd:"" help:"Leave a course"`
+	URL       ClassroomCoursesURLCmd       `cmd:"" name:"url" help:"Print Classroom web URLs for courses"`
 }
 
 type ClassroomCoursesListCmd struct {
@@ -495,4 +496,57 @@ func (c *ClassroomCoursesLeaveCmd) Run(ctx context.Context, flags *RootFlags) er
 	u.Out().Printf("user_id\t%s", userID)
 	u.Out().Printf("role\t%s", role)
 	return nil
+}
+
+type ClassroomCoursesURLCmd struct {
+	CourseIDs []string `arg:"" name:"courseId" help:"Course IDs or aliases"`
+}
+
+func (c *ClassroomCoursesURLCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	if len(c.CourseIDs) == 0 {
+		return usage("missing courseId")
+	}
+
+	svc, err := newClassroomService(ctx, account)
+	if err != nil {
+		return wrapClassroomError(err)
+	}
+
+	if outfmt.IsJSON(ctx) {
+		urls := make([]map[string]string, 0, len(c.CourseIDs))
+		for _, id := range c.CourseIDs {
+			link, err := classroomCourseLink(ctx, svc, id)
+			if err != nil {
+				return err
+			}
+			urls = append(urls, map[string]string{"id": id, "url": link})
+		}
+		return outfmt.WriteJSON(os.Stdout, map[string]any{"urls": urls})
+	}
+
+	for _, id := range c.CourseIDs {
+		link, err := classroomCourseLink(ctx, svc, id)
+		if err != nil {
+			return err
+		}
+		u.Out().Printf("%s\t%s", id, link)
+	}
+	return nil
+}
+
+func classroomCourseLink(ctx context.Context, svc *classroom.Service, courseID string) (string, error) {
+	id := strings.TrimSpace(courseID)
+	if id == "" {
+		return "", usage("empty courseId")
+	}
+	course, err := svc.Courses.Get(id).Context(ctx).Do()
+	if err != nil {
+		return "", wrapClassroomError(err)
+	}
+	return course.AlternateLink, nil
 }

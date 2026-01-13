@@ -397,3 +397,95 @@ func (c *ClassroomTeachersRemoveCmd) Run(ctx context.Context, flags *RootFlags) 
 	u.Out().Printf("user_id\t%s", userID)
 	return nil
 }
+
+type ClassroomRosterCmd struct {
+	CourseID string `arg:"" name:"courseId" help:"Course ID or alias"`
+	Students bool   `name:"students" help:"Include students"`
+	Teachers bool   `name:"teachers" help:"Include teachers"`
+	Max      int64  `name:"max" aliases:"limit" help:"Max results (per role)" default:"100"`
+	Page     string `name:"page" help:"Page token (per role)"`
+}
+
+func (c *ClassroomRosterCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	courseID := strings.TrimSpace(c.CourseID)
+	if courseID == "" {
+		return usage("empty courseId")
+	}
+
+	includeStudents := c.Students || (!c.Students && !c.Teachers)
+	includeTeachers := c.Teachers || (!c.Students && !c.Teachers)
+
+	svc, err := newClassroomService(ctx, account)
+	if err != nil {
+		return wrapClassroomError(err)
+	}
+
+	var studentsResp *classroom.ListStudentsResponse
+	var teachersResp *classroom.ListTeachersResponse
+
+	if includeStudents {
+		studentsResp, err = svc.Courses.Students.List(courseID).PageSize(c.Max).PageToken(c.Page).Context(ctx).Do()
+		if err != nil {
+			return wrapClassroomError(err)
+		}
+	}
+	if includeTeachers {
+		teachersResp, err = svc.Courses.Teachers.List(courseID).PageSize(c.Max).PageToken(c.Page).Context(ctx).Do()
+		if err != nil {
+			return wrapClassroomError(err)
+		}
+	}
+
+	if outfmt.IsJSON(ctx) {
+		payload := map[string]any{"courseId": courseID}
+		if includeStudents {
+			payload["students"] = studentsResp.Students
+			payload["studentsNextPageToken"] = studentsResp.NextPageToken
+		}
+		if includeTeachers {
+			payload["teachers"] = teachersResp.Teachers
+			payload["teachersNextPageToken"] = teachersResp.NextPageToken
+		}
+		return outfmt.WriteJSON(os.Stdout, payload)
+	}
+
+	w, flush := tableWriter(ctx)
+	defer flush()
+	fmt.Fprintln(w, "ROLE\tUSER_ID\tEMAIL\tNAME")
+	if includeTeachers {
+		for _, teacher := range teachersResp.Teachers {
+			if teacher == nil {
+				continue
+			}
+			fmt.Fprintf(w, "teacher\t%s\t%s\t%s\n",
+				sanitizeTab(teacher.UserId),
+				sanitizeTab(teacher.Profile.EmailAddress),
+				sanitizeTab(profileName(teacher.Profile)),
+			)
+		}
+		if teachersResp.NextPageToken != "" {
+			u.Err().Printf("# Next teachers page: --page %s", teachersResp.NextPageToken)
+		}
+	}
+	if includeStudents {
+		for _, student := range studentsResp.Students {
+			if student == nil {
+				continue
+			}
+			fmt.Fprintf(w, "student\t%s\t%s\t%s\n",
+				sanitizeTab(student.UserId),
+				sanitizeTab(student.Profile.EmailAddress),
+				sanitizeTab(profileName(student.Profile)),
+			)
+		}
+		if studentsResp.NextPageToken != "" {
+			u.Err().Printf("# Next students page: --page %s", studentsResp.NextPageToken)
+		}
+	}
+	return nil
+}

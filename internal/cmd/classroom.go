@@ -8,7 +8,9 @@ type ClassroomCmd struct {
 	Courses         ClassroomCoursesCmd         `cmd:"" help:"Courses"`
 	Students        ClassroomStudentsCmd        `cmd:"" help:"Course students"`
 	Teachers        ClassroomTeachersCmd        `cmd:"" help:"Course teachers"`
-	Coursework      ClassroomCourseworkCmd      `cmd:"" name:"coursework" help:"Coursework"`
+	Roster          ClassroomRosterCmd          `cmd:"" help:"Course roster (students + teachers)"`
+	Coursework      ClassroomCourseworkCmd      `cmd:"" name:"coursework" aliases:"work" help:"Coursework"`
+	Materials       ClassroomMaterialsCmd       `cmd:"" name:"materials" help:"Coursework materials"`
 	Submissions     ClassroomSubmissionsCmd     `cmd:"" help:"Student submissions"`
 	Announcements   ClassroomAnnouncementsCmd   `cmd:"" help:"Announcements"`
 	Topics          ClassroomTopicsCmd          `cmd:"" help:"Topics"`
