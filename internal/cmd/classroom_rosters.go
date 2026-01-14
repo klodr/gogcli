@@ -67,7 +67,7 @@ func (c *ClassroomStudentsListCmd) Run(ctx context.Context, flags *RootFlags) er
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n",
 			sanitizeTab(student.UserId),
-			sanitizeTab(student.Profile.EmailAddress),
+			sanitizeTab(profileEmail(student.Profile)),
 			sanitizeTab(profileName(student.Profile)),
 		)
 	}
@@ -110,7 +110,7 @@ func (c *ClassroomStudentsGetCmd) Run(ctx context.Context, flags *RootFlags) err
 	}
 
 	u.Out().Printf("user_id\t%s", student.UserId)
-	u.Out().Printf("email\t%s", student.Profile.EmailAddress)
+	u.Out().Printf("email\t%s", profileEmail(student.Profile))
 	u.Out().Printf("name\t%s", profileName(student.Profile))
 	if student.StudentWorkFolder != nil {
 		u.Out().Printf("work_folder\t%s", student.StudentWorkFolder.Id)
@@ -158,7 +158,7 @@ func (c *ClassroomStudentsAddCmd) Run(ctx context.Context, flags *RootFlags) err
 		return outfmt.WriteJSON(os.Stdout, map[string]any{"student": created})
 	}
 	u.Out().Printf("user_id\t%s", created.UserId)
-	u.Out().Printf("email\t%s", created.Profile.EmailAddress)
+	u.Out().Printf("email\t%s", profileEmail(created.Profile))
 	u.Out().Printf("name\t%s", profileName(created.Profile))
 	return nil
 }
@@ -265,7 +265,7 @@ func (c *ClassroomTeachersListCmd) Run(ctx context.Context, flags *RootFlags) er
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n",
 			sanitizeTab(teacher.UserId),
-			sanitizeTab(teacher.Profile.EmailAddress),
+			sanitizeTab(profileEmail(teacher.Profile)),
 			sanitizeTab(profileName(teacher.Profile)),
 		)
 	}
@@ -308,7 +308,7 @@ func (c *ClassroomTeachersGetCmd) Run(ctx context.Context, flags *RootFlags) err
 	}
 
 	u.Out().Printf("user_id\t%s", teacher.UserId)
-	u.Out().Printf("email\t%s", teacher.Profile.EmailAddress)
+	u.Out().Printf("email\t%s", profileEmail(teacher.Profile))
 	u.Out().Printf("name\t%s", profileName(teacher.Profile))
 	return nil
 }
@@ -348,7 +348,7 @@ func (c *ClassroomTeachersAddCmd) Run(ctx context.Context, flags *RootFlags) err
 		return outfmt.WriteJSON(os.Stdout, map[string]any{"teacher": created})
 	}
 	u.Out().Printf("user_id\t%s", created.UserId)
-	u.Out().Printf("email\t%s", created.Profile.EmailAddress)
+	u.Out().Printf("email\t%s", profileEmail(created.Profile))
 	u.Out().Printf("name\t%s", profileName(created.Profile))
 	return nil
 }
@@ -466,7 +466,7 @@ func (c *ClassroomRosterCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 			fmt.Fprintf(w, "teacher\t%s\t%s\t%s\n",
 				sanitizeTab(teacher.UserId),
-				sanitizeTab(teacher.Profile.EmailAddress),
+				sanitizeTab(profileEmail(teacher.Profile)),
 				sanitizeTab(profileName(teacher.Profile)),
 			)
 		}
@@ -481,7 +481,7 @@ func (c *ClassroomRosterCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 			fmt.Fprintf(w, "student\t%s\t%s\t%s\n",
 				sanitizeTab(student.UserId),
-				sanitizeTab(student.Profile.EmailAddress),
+				sanitizeTab(profileEmail(student.Profile)),
 				sanitizeTab(profileName(student.Profile)),
 			)
 		}

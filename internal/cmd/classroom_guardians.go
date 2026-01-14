@@ -72,7 +72,7 @@ func (c *ClassroomGuardiansListCmd) Run(ctx context.Context, flags *RootFlags) e
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n",
 			sanitizeTab(guardian.GuardianId),
-			sanitizeTab(guardian.GuardianProfile.EmailAddress),
+			sanitizeTab(profileEmail(guardian.GuardianProfile)),
 			sanitizeTab(profileName(guardian.GuardianProfile)),
 		)
 	}
@@ -116,7 +116,7 @@ func (c *ClassroomGuardiansGetCmd) Run(ctx context.Context, flags *RootFlags) er
 
 	u.Out().Printf("id\t%s", guardian.GuardianId)
 	u.Out().Printf("student_id\t%s", guardian.StudentId)
-	u.Out().Printf("email\t%s", guardian.GuardianProfile.EmailAddress)
+	u.Out().Printf("email\t%s", profileEmail(guardian.GuardianProfile))
 	u.Out().Printf("name\t%s", profileName(guardian.GuardianProfile))
 	return nil
 }

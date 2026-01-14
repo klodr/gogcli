@@ -24,6 +24,7 @@ type ClassroomCourseworkCmd struct {
 type ClassroomCourseworkListCmd struct {
 	CourseID string `arg:"" name:"courseId" help:"Course ID or alias"`
 	States   string `name:"state" help:"Coursework states filter (comma-separated: DRAFT,PUBLISHED,DELETED)"`
+	Topic    string `name:"topic" help:"Filter by topic ID"`
 	OrderBy  string `name:"order-by" help:"Order by (e.g., updateTime desc, dueDate desc)"`
 	Max      int64  `name:"max" aliases:"limit" help:"Max results" default:"100"`
 	Page     string `name:"page" help:"Page token"`
@@ -62,14 +63,27 @@ func (c *ClassroomCourseworkListCmd) Run(ctx context.Context, flags *RootFlags) 
 		return wrapClassroomError(err)
 	}
 
+	// Client-side filter by topic (API doesn't support server-side topic filter)
+	topicFilter := strings.TrimSpace(c.Topic)
+	coursework := resp.CourseWork
+	if topicFilter != "" {
+		filtered := make([]*classroom.CourseWork, 0, len(coursework))
+		for _, work := range coursework {
+			if work != nil && work.TopicId == topicFilter {
+				filtered = append(filtered, work)
+			}
+		}
+		coursework = filtered
+	}
+
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(os.Stdout, map[string]any{
-			"coursework":    resp.CourseWork,
+			"coursework":    coursework,
 			"nextPageToken": resp.NextPageToken,
 		})
 	}
 
-	if len(resp.CourseWork) == 0 {
+	if len(coursework) == 0 {
 		u.Err().Println("No coursework")
 		return nil
 	}
@@ -77,7 +91,7 @@ func (c *ClassroomCourseworkListCmd) Run(ctx context.Context, flags *RootFlags) 
 	w, flush := tableWriter(ctx)
 	defer flush()
 	fmt.Fprintln(w, "ID\tTITLE\tSTATE\tDUE\tTYPE\tMAX_POINTS")
-	for _, work := range resp.CourseWork {
+	for _, work := range coursework {
 		if work == nil {
 			continue
 		}

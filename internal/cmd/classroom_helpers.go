@@ -140,6 +140,13 @@ func profileName(profile *classroom.UserProfile) string {
 	return strings.TrimSpace(strings.TrimSpace(profile.Name.GivenName + " " + profile.Name.FamilyName))
 }
 
+func profileEmail(profile *classroom.UserProfile) string {
+	if profile == nil {
+		return ""
+	}
+	return profile.EmailAddress
+}
+
 func formatFloatValue(v float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", v), "0"), ".")
 }

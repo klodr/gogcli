@@ -23,6 +23,7 @@ type ClassroomMaterialsCmd struct {
 type ClassroomMaterialsListCmd struct {
 	CourseID string `arg:"" name:"courseId" help:"Course ID or alias"`
 	States   string `name:"state" help:"Material states filter (comma-separated: PUBLISHED,DRAFT,DELETED)"`
+	Topic    string `name:"topic" help:"Filter by topic ID"`
 	OrderBy  string `name:"order-by" help:"Order by (e.g., updateTime desc)"`
 	Max      int64  `name:"max" aliases:"limit" help:"Max results" default:"100"`
 	Page     string `name:"page" help:"Page token"`
@@ -61,14 +62,27 @@ func (c *ClassroomMaterialsListCmd) Run(ctx context.Context, flags *RootFlags) e
 		return wrapClassroomError(err)
 	}
 
+	// Client-side filter by topic (API doesn't support server-side topic filter)
+	topicFilter := strings.TrimSpace(c.Topic)
+	materials := resp.CourseWorkMaterial
+	if topicFilter != "" {
+		filtered := make([]*classroom.CourseWorkMaterial, 0, len(materials))
+		for _, material := range materials {
+			if material != nil && material.TopicId == topicFilter {
+				filtered = append(filtered, material)
+			}
+		}
+		materials = filtered
+	}
+
 	if outfmt.IsJSON(ctx) {
 		return outfmt.WriteJSON(os.Stdout, map[string]any{
-			"materials":     resp.CourseWorkMaterial,
+			"materials":     materials,
 			"nextPageToken": resp.NextPageToken,
 		})
 	}
 
-	if len(resp.CourseWorkMaterial) == 0 {
+	if len(materials) == 0 {
 		u.Err().Println("No materials")
 		return nil
 	}
@@ -76,7 +90,7 @@ func (c *ClassroomMaterialsListCmd) Run(ctx context.Context, flags *RootFlags) e
 	w, flush := tableWriter(ctx)
 	defer flush()
 	fmt.Fprintln(w, "ID\tTITLE\tSTATE\tUPDATED")
-	for _, material := range resp.CourseWorkMaterial {
+	for _, material := range materials {
 		if material == nil {
 			continue
 		}

@@ -423,7 +423,7 @@ func (c *ClassroomCoursesJoinCmd) Run(ctx context.Context, flags *RootFlags) err
 			return outfmt.WriteJSON(os.Stdout, map[string]any{"student": created})
 		}
 		u.Out().Printf("user_id\t%s", created.UserId)
-		u.Out().Printf("email\t%s", created.Profile.EmailAddress)
+		u.Out().Printf("email\t%s", profileEmail(created.Profile))
 		u.Out().Printf("name\t%s", profileName(created.Profile))
 		return nil
 	case "teacher":
@@ -436,7 +436,7 @@ func (c *ClassroomCoursesJoinCmd) Run(ctx context.Context, flags *RootFlags) err
 			return outfmt.WriteJSON(os.Stdout, map[string]any{"teacher": created})
 		}
 		u.Out().Printf("user_id\t%s", created.UserId)
-		u.Out().Printf("email\t%s", created.Profile.EmailAddress)
+		u.Out().Printf("email\t%s", profileEmail(created.Profile))
 		u.Out().Printf("name\t%s", profileName(created.Profile))
 		return nil
 	default:
