@@ -124,6 +124,20 @@ func TestIsStaleHistoryError_MoreCases(t *testing.T) {
 	}
 }
 
+func TestIsNotFoundAPIError(t *testing.T) {
+	if !isNotFoundAPIError(&googleapi.Error{Code: http.StatusNotFound}) {
+		t.Fatalf("expected not found error")
+	}
+	if isNotFoundAPIError(&googleapi.Error{
+		Code: http.StatusForbidden,
+		Errors: []googleapi.ErrorItem{
+			{Reason: "notFound"},
+		},
+	}) {
+		t.Fatalf("expected non-notfound for forbidden")
+	}
+}
+
 func TestVerifyOIDCToken_NoValidator_Error(t *testing.T) {
 	ok, err := verifyOIDCToken(context.Background(), nil, "tok", "aud", "")
 	if err == nil || ok {

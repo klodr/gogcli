@@ -468,14 +468,10 @@ func isStaleHistoryError(err error) bool {
 func isNotFoundAPIError(err error) bool {
 	var gerr *googleapi.Error
 	if errors.As(err, &gerr) {
-		if gerr.Code == http.StatusNotFound {
-			return true
+		if gerr.Code != http.StatusNotFound {
+			return false
 		}
-		for _, item := range gerr.Errors {
-			if strings.EqualFold(strings.TrimSpace(item.Reason), "notfound") {
-				return true
-			}
-		}
+		return true
 	}
 	return false
 }
