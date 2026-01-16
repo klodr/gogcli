@@ -109,8 +109,8 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 			return "", fmt.Errorf("read redirect url: %w", readErr)
 		}
 		line = strings.TrimSpace(line)
-		code, gotState, parseErr := extractCodeAndState(line)
 
+		code, gotState, parseErr := extractCodeAndState(line)
 		if parseErr != nil {
 			return "", parseErr
 		}
@@ -163,6 +163,7 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 				return
 			}
 			q := r.URL.Query()
+
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 			if q.Get("error") != "" {
@@ -170,33 +171,43 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 				case errCh <- fmt.Errorf("%w: %s", errAuthorization, q.Get("error")):
 				default:
 				}
+
 				w.WriteHeader(http.StatusOK)
 				renderCancelledPage(w)
+
 				return
 			}
+
 			if q.Get("state") != state {
 				select {
 				case errCh <- errStateMismatch:
 				default:
 				}
+
 				w.WriteHeader(http.StatusBadRequest)
 				renderErrorPage(w, "State mismatch - possible CSRF attack. Please try again.")
+
 				return
 			}
+
 			code := q.Get("code")
 			if code == "" {
 				select {
 				case errCh <- errMissingCode:
 				default:
 				}
+
 				w.WriteHeader(http.StatusBadRequest)
 				renderErrorPage(w, "Missing authorization code. Please try again.")
+
 				return
 			}
+
 			select {
 			case codeCh <- code:
 			default:
 			}
+
 			w.WriteHeader(http.StatusOK)
 			renderSuccessPage(w)
 		}),

@@ -44,7 +44,7 @@ linters:
     - wastedassign
     - whitespace
     - wrapcheck
-    - wsl
+    - wsl_v5
 
   settings:
     cyclop:
@@ -87,12 +87,13 @@ linters:
             ignore: true
           - pkg: github.com/steipete/gogcli/internal/googleauth
             ignore: true
-    wsl:
-      allow-cuddle-declarations: true
-      allow-assign-and-call: true
-      allow-assign-and-anything: true
-      allow-multiline-assign: true
-      allow-cuddle-used-in-block: true
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
+      disable:
+        - assign
+        - decl
     govet:
       enable-all: true
       disable:
@@ -117,14 +118,14 @@ linters:
           - err113
           - wrapcheck
           - dupl
-          - wsl
+          - wsl_v5
           - tagliatelle
       - path: internal/googleauth/.*\.go
         linters:
           - tagliatelle
       - path: cmd/.*\.go
         linters:
-          - wsl
+          - wsl_v5
       - linters:
           - errcheck
         text: "Error return value of `fmt\\.Fprint"

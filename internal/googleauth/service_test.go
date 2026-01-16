@@ -84,6 +84,7 @@ func TestUserServices(t *testing.T) {
 	}
 
 	seenDocs := false
+
 	for _, s := range svcs {
 		switch s {
 		case ServiceDocs:
@@ -200,6 +201,7 @@ func TestScopesForServices_UnionSorted(t *testing.T) {
 	}
 	for _, w := range want {
 		found := false
+
 		for _, s := range scopes {
 			if s == w {
 				found = true
@@ -386,6 +388,7 @@ func TestScopes_DocsIncludesDriveAndDocsScopes(t *testing.T) {
 		"https://www.googleapis.com/auth/documents",
 	} {
 		found := false
+
 		for _, scope := range scopes {
 			if scope == want {
 				found = true

@@ -21,6 +21,7 @@ func ReadLine(r io.Reader) (string, error) {
 	br := bufio.NewReader(r)
 
 	var sb strings.Builder
+
 	for {
 		b, err := br.ReadByte()
 		if err != nil {
