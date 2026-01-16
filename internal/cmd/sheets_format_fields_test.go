@@ -8,7 +8,7 @@ import (
 
 func TestApplyForceSendFields_TextFormatBold(t *testing.T) {
 	format := sheets.CellFormat{}
-	if err := applyForceSendFields(&format, "userEnteredFormat.textFormat.bold"); err != nil {
+	if err := applyForceSendFields(&format, []string{"textFormat.bold"}); err != nil {
 		t.Fatalf("applyForceSendFields: %v", err)
 	}
 	if format.TextFormat == nil {
@@ -21,8 +21,27 @@ func TestApplyForceSendFields_TextFormatBold(t *testing.T) {
 
 func TestApplyForceSendFields_UnknownField(t *testing.T) {
 	format := sheets.CellFormat{}
-	if err := applyForceSendFields(&format, "userEnteredFormat.nope"); err == nil {
+	if err := applyForceSendFields(&format, []string{"nope"}); err == nil {
 		t.Fatalf("expected error for unknown field")
+	}
+}
+
+func TestApplyForceSendFields_NumberFormatType(t *testing.T) {
+	format := sheets.CellFormat{}
+	if err := applyForceSendFields(&format, []string{"numberFormat.type"}); err != nil {
+		t.Fatalf("applyForceSendFields: %v", err)
+	}
+	if format.NumberFormat == nil {
+		t.Fatalf("expected numberFormat to be allocated")
+	}
+	if !hasString(format.NumberFormat.ForceSendFields, "Type") {
+		t.Fatalf("expected Type to be force-sent, got %#v", format.NumberFormat.ForceSendFields)
+	}
+}
+
+func TestApplyForceSendFields_NilFormat(t *testing.T) {
+	if err := applyForceSendFields(nil, []string{"textFormat.bold"}); err == nil {
+		t.Fatalf("expected error for nil format")
 	}
 }
 
@@ -33,4 +52,43 @@ func hasString(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func TestNormalizeFormatMask(t *testing.T) {
+	normalized, paths, err := normalizeFormatMask("textFormat.bold, userEnteredFormat.textFormat.italic, userEnteredValue")
+	if err != nil {
+		t.Fatalf("normalizeFormatMask: %v", err)
+	}
+	if normalized != "userEnteredFormat.textFormat.bold,userEnteredFormat.textFormat.italic,userEnteredValue" {
+		t.Fatalf("unexpected normalized mask: %s", normalized)
+	}
+	if len(paths) != 2 || paths[0] != "textFormat.bold" || paths[1] != "textFormat.italic" {
+		t.Fatalf("unexpected format paths: %#v", paths)
+	}
+}
+
+func TestNormalizeFormatMask_UserEnteredFormatOnly(t *testing.T) {
+	normalized, paths, err := normalizeFormatMask("userEnteredFormat")
+	if err != nil {
+		t.Fatalf("normalizeFormatMask: %v", err)
+	}
+	if normalized != "userEnteredFormat" {
+		t.Fatalf("unexpected normalized mask: %s", normalized)
+	}
+	if len(paths) != 0 {
+		t.Fatalf("unexpected format paths: %#v", paths)
+	}
+}
+
+func TestNormalizeFormatMask_LeavesUnknowns(t *testing.T) {
+	normalized, paths, err := normalizeFormatMask("note")
+	if err != nil {
+		t.Fatalf("normalizeFormatMask: %v", err)
+	}
+	if normalized != "note" {
+		t.Fatalf("unexpected normalized mask: %s", normalized)
+	}
+	if len(paths) != 0 {
+		t.Fatalf("unexpected format paths: %#v", paths)
+	}
 }

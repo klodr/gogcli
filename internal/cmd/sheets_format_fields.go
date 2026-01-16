@@ -8,18 +8,52 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-func applyForceSendFields(format *sheets.CellFormat, fieldMask string) error {
+func normalizeFormatMask(mask string) (string, []string, error) {
+	parts := splitFieldMask(mask)
+	if len(parts) == 0 {
+		return "", nil, nil
+	}
+
+	normalized := make([]string, 0, len(parts))
+	formatJSONPaths := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+
+		switch {
+		case part == "userEnteredFormat":
+			normalized = append(normalized, part)
+		case strings.HasPrefix(part, "userEnteredFormat."):
+			formatPath := strings.TrimPrefix(part, "userEnteredFormat.")
+			normalized = append(normalized, part)
+			if formatPath != "" {
+				formatJSONPaths = append(formatJSONPaths, formatPath)
+			}
+		default:
+			if isFormatJSONPath(part) {
+				normalized = append(normalized, "userEnteredFormat."+part)
+				formatJSONPaths = append(formatJSONPaths, part)
+			} else {
+				normalized = append(normalized, part)
+			}
+		}
+	}
+
+	return strings.Join(normalized, ","), formatJSONPaths, nil
+}
+
+func applyForceSendFields(format *sheets.CellFormat, formatPaths []string) error {
 	if format == nil {
 		return fmt.Errorf("format is required")
 	}
 
-	for _, raw := range splitFieldMask(fieldMask) {
-		normalized := normalizeFormatField(raw)
-		if normalized == "" {
+	for _, path := range formatPaths {
+		if strings.TrimSpace(path) == "" {
 			continue
 		}
-		if err := forceSendJSONField(format, normalized); err != nil {
-			return fmt.Errorf("invalid format field %q: %w", strings.TrimSpace(raw), err)
+		if err := forceSendJSONField(format, path); err != nil {
+			return fmt.Errorf("invalid format field %q: %w", path, err)
 		}
 	}
 	return nil
@@ -36,73 +70,23 @@ func splitFieldMask(mask string) []string {
 	return parts
 }
 
-func normalizeFormatField(field string) string {
-	field = strings.TrimSpace(field)
-	if field == "" {
-		return ""
+func isFormatJSONPath(path string) bool {
+	if strings.TrimSpace(path) == "" {
+		return false
 	}
-	if field == "userEnteredFormat" {
-		return ""
-	}
-	if strings.HasPrefix(field, "userEnteredFormat.") {
-		return strings.TrimPrefix(field, "userEnteredFormat.")
-	}
-	return ""
+	var format sheets.CellFormat
+	return forceSendJSONField(&format, path) == nil
 }
 
 func forceSendJSONField(root any, jsonPath string) error {
-	current := reflect.ValueOf(root)
-	if current.Kind() != reflect.Pointer || current.IsNil() {
-		return fmt.Errorf("format must be a non-nil pointer")
+	parent, fieldValue, fieldName, err := resolveJSONField(root, jsonPath)
+	if err != nil {
+		return err
 	}
-
-	parts := strings.Split(jsonPath, ".")
-	for i, part := range parts {
-		if current.Kind() == reflect.Pointer {
-			if current.IsNil() {
-				if current.Type().Elem().Kind() != reflect.Struct {
-					return fmt.Errorf("field %q is not a struct", part)
-				}
-				current.Set(reflect.New(current.Type().Elem()))
-			}
-			current = current.Elem()
-		}
-		if current.Kind() != reflect.Struct {
-			return fmt.Errorf("field %q is not a struct", part)
-		}
-
-		fieldValue, fieldName, ok := findJSONField(current, part)
-		if !ok {
-			return fmt.Errorf("unknown field %q", part)
-		}
-
-		if i == len(parts)-1 {
-			if fieldValue.Kind() == reflect.Pointer && fieldValue.IsNil() && fieldValue.Type().Elem().Kind() == reflect.Struct {
-				fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
-			}
-			return addForceSendField(current, fieldName)
-		}
-
-		switch fieldValue.Kind() {
-		case reflect.Pointer:
-			if fieldValue.IsNil() {
-				if fieldValue.Type().Elem().Kind() != reflect.Struct {
-					return fmt.Errorf("field %q is not a struct", part)
-				}
-				fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
-			}
-			current = fieldValue
-		case reflect.Struct:
-			if !fieldValue.CanAddr() {
-				return fmt.Errorf("field %q is not addressable", part)
-			}
-			current = fieldValue.Addr()
-		default:
-			return fmt.Errorf("field %q is not a struct", part)
-		}
+	if fieldValue.Kind() == reflect.Pointer && fieldValue.IsNil() && fieldValue.Type().Elem().Kind() == reflect.Struct {
+		fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
 	}
-
-	return nil
+	return addForceSendField(parent, fieldName)
 }
 
 func findJSONField(v reflect.Value, jsonName string) (reflect.Value, string, bool) {
@@ -142,4 +126,71 @@ func addForceSendField(v reflect.Value, fieldName string) error {
 	}
 	fs.Set(reflect.Append(fs, reflect.ValueOf(fieldName)))
 	return nil
+}
+
+func resolveJSONField(root any, jsonPath string) (reflect.Value, reflect.Value, string, error) {
+	current := reflect.ValueOf(root)
+	if current.Kind() != reflect.Pointer || current.IsNil() {
+		return reflect.Value{}, reflect.Value{}, "", fmt.Errorf("format must be a non-nil pointer")
+	}
+
+	parts := strings.Split(jsonPath, ".")
+	for i, part := range parts {
+		structValue, err := ensureStructValue(current, part)
+		if err != nil {
+			return reflect.Value{}, reflect.Value{}, "", err
+		}
+
+		fieldValue, fieldName, ok := findJSONField(structValue, part)
+		if !ok {
+			return reflect.Value{}, reflect.Value{}, "", fmt.Errorf("unknown field %q", part)
+		}
+		if i == len(parts)-1 {
+			return structValue, fieldValue, fieldName, nil
+		}
+
+		next, err := nextStructPointer(fieldValue, part)
+		if err != nil {
+			return reflect.Value{}, reflect.Value{}, "", err
+		}
+		current = next
+	}
+
+	return reflect.Value{}, reflect.Value{}, "", fmt.Errorf("empty format field")
+}
+
+func ensureStructValue(value reflect.Value, label string) (reflect.Value, error) {
+	if value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			if value.Type().Elem().Kind() != reflect.Struct {
+				return reflect.Value{}, fmt.Errorf("field %q is not a struct", label)
+			}
+			value.Set(reflect.New(value.Type().Elem()))
+		}
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return reflect.Value{}, fmt.Errorf("field %q is not a struct", label)
+	}
+	return value, nil
+}
+
+func nextStructPointer(value reflect.Value, label string) (reflect.Value, error) {
+	switch value.Kind() {
+	case reflect.Pointer:
+		if value.IsNil() {
+			if value.Type().Elem().Kind() != reflect.Struct {
+				return reflect.Value{}, fmt.Errorf("field %q is not a struct", label)
+			}
+			value.Set(reflect.New(value.Type().Elem()))
+		}
+		return value, nil
+	case reflect.Struct:
+		if !value.CanAddr() {
+			return reflect.Value{}, fmt.Errorf("field %q is not addressable", label)
+		}
+		return value.Addr(), nil
+	default:
+		return reflect.Value{}, fmt.Errorf("field %q is not a struct", label)
+	}
 }

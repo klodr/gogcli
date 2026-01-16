@@ -74,7 +74,7 @@ func TestSheetsFormatCmd(t *testing.T) {
 		"s1",
 		"Sheet1!B2:C3",
 		"--format-json", `{"textFormat":{"bold":true}}`,
-		"--format-fields", "userEnteredFormat.textFormat.bold",
+		"--format-fields", "textFormat.bold",
 	}, ctx, flags); err != nil {
 		t.Fatalf("format: %v", err)
 	}

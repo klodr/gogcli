@@ -17,7 +17,7 @@ type SheetsFormatCmd struct {
 	SpreadsheetID string `arg:"" name:"spreadsheetId" help:"Spreadsheet ID"`
 	Range         string `arg:"" name:"range" help:"Range (eg. Sheet1!A1:B2)"`
 	FormatJSON    string `name:"format-json" help:"Cell format as JSON (Sheets API CellFormat)"`
-	FormatFields  string `name:"format-fields" help:"Format field mask (eg. userEnteredFormat.textFormat.bold)"`
+	FormatFields  string `name:"format-fields" help:"Format field mask (eg. userEnteredFormat.textFormat.bold or textFormat.bold)"`
 }
 
 func (c *SheetsFormatCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -47,7 +47,15 @@ func (c *SheetsFormatCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if err := json.Unmarshal([]byte(c.FormatJSON), &format); err != nil {
 		return fmt.Errorf("invalid format JSON: %w", err)
 	}
-	if err := applyForceSendFields(&format, formatFields); err != nil {
+
+	normalizedFields, formatJSONPaths, err := normalizeFormatMask(formatFields)
+	if err != nil {
+		return err
+	}
+	if normalizedFields != "" {
+		formatFields = normalizedFields
+	}
+	if err := applyForceSendFields(&format, formatJSONPaths); err != nil {
 		return err
 	}
 
