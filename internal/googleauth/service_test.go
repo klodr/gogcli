@@ -10,6 +10,7 @@ func TestParseService(t *testing.T) {
 		{"gmail", ServiceGmail},
 		{"GMAIL", ServiceGmail},
 		{"calendar", ServiceCalendar},
+		{"classroom", ServiceClassroom},
 		{"drive", ServiceDrive},
 		{"docs", ServiceDocs},
 		{"contacts", ServiceContacts},
@@ -60,7 +61,7 @@ func TestExtractCodeAndState_Errors(t *testing.T) {
 
 func TestAllServices(t *testing.T) {
 	svcs := AllServices()
-	if len(svcs) != 10 {
+	if len(svcs) != 11 {
 		t.Fatalf("unexpected: %v", svcs)
 	}
 	seen := make(map[Service]bool)
@@ -69,7 +70,7 @@ func TestAllServices(t *testing.T) {
 		seen[s] = true
 	}
 
-	for _, want := range []Service{ServiceGmail, ServiceCalendar, ServiceDrive, ServiceDocs, ServiceContacts, ServiceTasks, ServicePeople, ServiceSheets, ServiceGroups, ServiceKeep} {
+	for _, want := range []Service{ServiceGmail, ServiceCalendar, ServiceClassroom, ServiceDrive, ServiceDocs, ServiceContacts, ServiceTasks, ServicePeople, ServiceSheets, ServiceGroups, ServiceKeep} {
 		if !seen[want] {
 			t.Fatalf("missing %q", want)
 		}
@@ -78,7 +79,7 @@ func TestAllServices(t *testing.T) {
 
 func TestUserServices(t *testing.T) {
 	svcs := UserServices()
-	if len(svcs) != 8 {
+	if len(svcs) != 9 {
 		t.Fatalf("unexpected: %v", svcs)
 	}
 
@@ -98,7 +99,7 @@ func TestUserServices(t *testing.T) {
 }
 
 func TestUserServiceCSV(t *testing.T) {
-	want := "gmail,calendar,drive,docs,contacts,tasks,sheets,people"
+	want := "gmail,calendar,classroom,drive,docs,contacts,tasks,sheets,people"
 	if got := UserServiceCSV(); got != want {
 		t.Fatalf("unexpected user services csv: %q", got)
 	}
@@ -188,7 +189,9 @@ func TestScopesForServices_UnionSorted(t *testing.T) {
 	}
 	// Ensure expected scopes are included.
 	want := []string{
-		"https://mail.google.com/",
+		"https://www.googleapis.com/auth/gmail.modify",
+		"https://www.googleapis.com/auth/gmail.settings.basic",
+		"https://www.googleapis.com/auth/gmail.settings.sharing",
 		"https://www.googleapis.com/auth/contacts",
 		"https://www.googleapis.com/auth/contacts.other.readonly",
 		"https://www.googleapis.com/auth/directory.readonly",
@@ -240,6 +243,7 @@ func TestScopesForManageWithOptions_Readonly(t *testing.T) {
 
 	notWant := []string{
 		"https://mail.google.com/",
+		"https://www.googleapis.com/auth/gmail.modify",
 		"https://www.googleapis.com/auth/gmail.settings.basic",
 		"https://www.googleapis.com/auth/gmail.settings.sharing",
 		"https://www.googleapis.com/auth/drive",
@@ -402,7 +406,7 @@ func TestScopes_GmailIncludesSettingsSharing(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"https://mail.google.com/",
+		"https://www.googleapis.com/auth/gmail.modify",
 		"https://www.googleapis.com/auth/gmail.settings.basic",
 		"https://www.googleapis.com/auth/gmail.settings.sharing",
 	} {
