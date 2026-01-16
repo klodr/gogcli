@@ -631,7 +631,6 @@ gog calendar create primary \
 gog calendar focus-time --from 2025-01-15T13:00:00Z --to 2025-01-15T14:00:00Z
 gog calendar out-of-office --from 2025-01-20 --to 2025-01-21 --all-day
 gog calendar working-location --type office --office-label "HQ" --from 2025-01-22 --to 2025-01-23
-
 # Add attendees without replacing existing attendees/RSVP state
 gog calendar update <calendarId> <eventId> \
   --add-attendee "alice@example.com,bob@example.com"
