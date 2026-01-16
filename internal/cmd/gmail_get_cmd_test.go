@@ -168,14 +168,14 @@ func TestGmailGetCmd_JSON_Full_WithAttachments(t *testing.T) {
 		t.Fatalf("expected 1 attachment, got: %v", parsed["attachments"])
 	}
 	att := attachments[0].(map[string]any)
-	if att["Filename"] != "document.pdf" {
-		t.Fatalf("unexpected attachment filename: %v", att["Filename"])
+	if att["filename"] != "document.pdf" {
+		t.Fatalf("unexpected attachment filename: %v", att["filename"])
 	}
-	if att["MimeType"] != "application/pdf" {
-		t.Fatalf("unexpected attachment mime type: %v", att["MimeType"])
+	if att["mimeType"] != "application/pdf" {
+		t.Fatalf("unexpected attachment mime type: %v", att["mimeType"])
 	}
-	if att["AttachmentID"] != "ANGjdJ-abc123" {
-		t.Fatalf("unexpected attachment id: %v", att["AttachmentID"])
+	if att["attachmentId"] != "ANGjdJ-abc123" {
+		t.Fatalf("unexpected attachment id: %v", att["attachmentId"])
 	}
 }
 

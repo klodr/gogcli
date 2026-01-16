@@ -23,6 +23,14 @@ const (
 	gmailFormatRaw      = "raw"
 )
 
+// attachmentOutput is used for JSON output with camelCase field names
+type attachmentOutput struct {
+	Filename     string `json:"filename"`
+	Size         int64  `json:"size"`
+	MimeType     string `json:"mimeType"`
+	AttachmentID string `json:"attachmentId"`
+}
+
 func (c *GmailGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
 	account, err := requireAccount(flags)
@@ -91,7 +99,16 @@ func (c *GmailGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 			}
 			attachments := collectAttachments(msg.Payload)
 			if len(attachments) > 0 {
-				payload["attachments"] = attachments
+				out := make([]attachmentOutput, len(attachments))
+				for i, a := range attachments {
+					out[i] = attachmentOutput{
+						Filename:     a.Filename,
+						Size:         a.Size,
+						MimeType:     a.MimeType,
+						AttachmentID: a.AttachmentID,
+					}
+				}
+				payload["attachments"] = out
 			}
 		}
 		return outfmt.WriteJSON(os.Stdout, payload)
