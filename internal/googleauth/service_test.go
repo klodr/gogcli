@@ -395,6 +395,23 @@ func TestScopes_DocsIncludesDriveAndDocsScopes(t *testing.T) {
 	}
 }
 
+func TestScopes_GmailIncludesSettingsSharing(t *testing.T) {
+	scopes, err := Scopes(ServiceGmail)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	for _, want := range []string{
+		"https://mail.google.com/",
+		"https://www.googleapis.com/auth/gmail.settings.basic",
+		"https://www.googleapis.com/auth/gmail.settings.sharing",
+	} {
+		if !containsScope(scopes, want) {
+			t.Fatalf("missing %q in %v", want, scopes)
+		}
+	}
+}
+
 func TestScopes_UnknownService(t *testing.T) {
 	if _, err := Scopes(Service("nope")); err == nil {
 		t.Fatalf("expected error")
