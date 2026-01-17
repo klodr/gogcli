@@ -127,28 +127,11 @@ func (c *GmailDraftsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 			if err != nil {
 				return err
 			}
-			type dl struct {
-				MessageID    string `json:"messageId"`
-				AttachmentID string `json:"attachmentId"`
-				Filename     string `json:"filename"`
-				Path         string `json:"path"`
-				Cached       bool   `json:"cached"`
+			downloads, err := downloadAttachmentOutputs(ctx, svc, msg.Id, collectAttachments(msg.Payload), attachDir)
+			if err != nil {
+				return err
 			}
-			downloaded := make([]dl, 0)
-			for _, a := range collectAttachments(msg.Payload) {
-				outPath, cached, err := downloadAttachment(ctx, svc, msg.Id, a, attachDir)
-				if err != nil {
-					return err
-				}
-				downloaded = append(downloaded, dl{
-					MessageID:    msg.Id,
-					AttachmentID: a.AttachmentID,
-					Filename:     a.Filename,
-					Path:         outPath,
-					Cached:       cached,
-				})
-			}
-			out["downloaded"] = downloaded
+			out["downloaded"] = attachmentDownloadDraftOutputs(downloads)
 		}
 		return outfmt.WriteJSON(os.Stdout, out)
 	}
@@ -174,15 +157,15 @@ func (c *GmailDraftsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 		if err != nil {
 			return err
 		}
-		for _, a := range attachments {
-			outPath, cached, err := downloadAttachment(ctx, svc, msg.Id, a, attachDir)
-			if err != nil {
-				return err
-			}
-			if cached {
-				u.Out().Printf("Cached: %s", outPath)
+		downloads, err := downloadAttachmentOutputs(ctx, svc, msg.Id, attachments, attachDir)
+		if err != nil {
+			return err
+		}
+		for _, a := range downloads {
+			if a.Cached {
+				u.Out().Printf("Cached: %s", a.Path)
 			} else {
-				u.Out().Successf("Saved: %s", outPath)
+				u.Out().Successf("Saved: %s", a.Path)
 			}
 		}
 	}

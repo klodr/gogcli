@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -29,6 +30,25 @@ type attachmentDownloadOutput struct {
 	attachmentOutput
 	Path   string `json:"path,omitempty"`
 	Cached bool   `json:"cached,omitempty"`
+}
+
+type attachmentDownloadSummary struct {
+	MessageID     string `json:"messageId"`
+	AttachmentID  string `json:"attachmentId"`
+	Filename      string `json:"filename"`
+	MimeType      string `json:"mimeType,omitempty"`
+	Size          int64  `json:"size,omitempty"`
+	Path          string `json:"path"`
+	Cached        bool   `json:"cached"`
+	DownloadError string `json:"error,omitempty"`
+}
+
+type attachmentDownloadDraftOutput struct {
+	MessageID    string `json:"messageId"`
+	AttachmentID string `json:"attachmentId"`
+	Filename     string `json:"filename"`
+	Path         string `json:"path"`
+	Cached       bool   `json:"cached"`
 }
 
 func attachmentOutputFromInfo(a attachmentInfo) attachmentOutput {
@@ -63,6 +83,56 @@ func attachmentOutputsFromDownloads(attachments []attachmentDownloadOutput) []at
 	return out
 }
 
+func attachmentDownloadOutputsFromInfo(messageID string, attachments []attachmentInfo) []attachmentDownloadOutput {
+	if len(attachments) == 0 {
+		return nil
+	}
+	out := make([]attachmentDownloadOutput, len(attachments))
+	for i, a := range attachments {
+		out[i] = attachmentDownloadOutput{
+			MessageID:        messageID,
+			attachmentOutput: attachmentOutputFromInfo(a),
+		}
+	}
+	return out
+}
+
+func attachmentDownloadSummaries(attachments []attachmentDownloadOutput) []attachmentDownloadSummary {
+	if len(attachments) == 0 {
+		return nil
+	}
+	out := make([]attachmentDownloadSummary, len(attachments))
+	for i, a := range attachments {
+		out[i] = attachmentDownloadSummary{
+			MessageID:    a.MessageID,
+			AttachmentID: a.AttachmentID,
+			Filename:     a.Filename,
+			MimeType:     a.MimeType,
+			Size:         a.Size,
+			Path:         a.Path,
+			Cached:       a.Cached,
+		}
+	}
+	return out
+}
+
+func attachmentDownloadDraftOutputs(attachments []attachmentDownloadOutput) []attachmentDownloadDraftOutput {
+	if len(attachments) == 0 {
+		return nil
+	}
+	out := make([]attachmentDownloadDraftOutput, len(attachments))
+	for i, a := range attachments {
+		out[i] = attachmentDownloadDraftOutput{
+			MessageID:    a.MessageID,
+			AttachmentID: a.AttachmentID,
+			Filename:     a.Filename,
+			Path:         a.Path,
+			Cached:       a.Cached,
+		}
+	}
+	return out
+}
+
 func attachmentLine(a attachmentOutput) string {
 	return fmt.Sprintf("attachment\t%s\t%s\t%s\t%s", a.Filename, a.SizeHuman, a.MimeType, a.AttachmentID)
 }
@@ -81,6 +151,26 @@ func printAttachmentSection(p *ui.Printer, attachments []attachmentInfo) {
 	p.Println("Attachments:")
 	printAttachmentLines(p, out)
 	p.Println("")
+}
+
+func downloadAttachmentOutputs(ctx context.Context, svc *gmail.Service, messageID string, attachments []attachmentInfo, dir string) ([]attachmentDownloadOutput, error) {
+	if len(attachments) == 0 {
+		return nil, nil
+	}
+	out := make([]attachmentDownloadOutput, 0, len(attachments))
+	for _, a := range attachments {
+		outPath, cached, err := downloadAttachment(ctx, svc, messageID, a, dir)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, attachmentDownloadOutput{
+			MessageID:        messageID,
+			attachmentOutput: attachmentOutputFromInfo(a),
+			Path:             outPath,
+			Cached:           cached,
+		})
+	}
+	return out, nil
 }
 
 func collectAttachments(p *gmail.MessagePart) []attachmentInfo {

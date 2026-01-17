@@ -91,38 +91,17 @@ func (c *GmailThreadGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	if outfmt.IsJSON(ctx) {
-		type downloaded struct {
-			MessageID     string `json:"messageId"`
-			AttachmentID  string `json:"attachmentId"`
-			Filename      string `json:"filename"`
-			MimeType      string `json:"mimeType,omitempty"`
-			Size          int64  `json:"size,omitempty"`
-			Path          string `json:"path"`
-			Cached        bool   `json:"cached"`
-			DownloadError string `json:"error,omitempty"`
-		}
-		downloadedFiles := make([]downloaded, 0)
+		var downloadedFiles []attachmentDownloadSummary
 		if c.Download && thread != nil {
 			for _, msg := range thread.Messages {
 				if msg == nil || msg.Id == "" {
 					continue
 				}
-				for _, a := range collectAttachments(msg.Payload) {
-					outPath, cached, err := downloadAttachment(ctx, svc, msg.Id, a, attachDir)
-					if err != nil {
-						return err
-					}
-					df := downloaded{
-						MessageID:    msg.Id,
-						AttachmentID: a.AttachmentID,
-						Filename:     a.Filename,
-						MimeType:     a.MimeType,
-						Size:         a.Size,
-						Path:         outPath,
-						Cached:       cached,
-					}
-					downloadedFiles = append(downloadedFiles, df)
+				downloads, err := downloadAttachmentOutputs(ctx, svc, msg.Id, collectAttachments(msg.Payload), attachDir)
+				if err != nil {
+					return err
 				}
+				downloadedFiles = append(downloadedFiles, attachmentDownloadSummaries(downloads)...)
 			}
 		}
 		return outfmt.WriteJSON(os.Stdout, map[string]any{
@@ -171,15 +150,15 @@ func (c *GmailThreadGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 		printAttachmentSection(u.Out(), attachments)
 
 		if c.Download && len(attachments) > 0 {
-			for _, a := range attachments {
-				outPath, cached, err := downloadAttachment(ctx, svc, msg.Id, a, attachDir)
-				if err != nil {
-					return err
-				}
-				if cached {
-					u.Out().Printf("Cached: %s", outPath)
+			downloads, err := downloadAttachmentOutputs(ctx, svc, msg.Id, attachments, attachDir)
+			if err != nil {
+				return err
+			}
+			for _, a := range downloads {
+				if a.Cached {
+					u.Out().Printf("Cached: %s", a.Path)
 				} else {
-					u.Out().Successf("Saved: %s", outPath)
+					u.Out().Successf("Saved: %s", a.Path)
 				}
 			}
 			u.Out().Println("")
@@ -304,21 +283,16 @@ func (c *GmailThreadAttachmentsCmd) Run(ctx context.Context, flags *RootFlags) e
 		if msg == nil {
 			continue
 		}
-		for _, a := range collectAttachments(msg.Payload) {
-			att := attachmentDownloadOutput{
-				MessageID:        msg.Id,
-				attachmentOutput: attachmentOutputFromInfo(a),
+		attachments := collectAttachments(msg.Payload)
+		if c.Download {
+			downloads, err := downloadAttachmentOutputs(ctx, svc, msg.Id, attachments, attachDir)
+			if err != nil {
+				return err
 			}
-			if c.Download {
-				outPath, cached, err := downloadAttachment(ctx, svc, msg.Id, a, attachDir)
-				if err != nil {
-					return err
-				}
-				att.Path = outPath
-				att.Cached = cached
-			}
-			allAttachments = append(allAttachments, att)
+			allAttachments = append(allAttachments, downloads...)
+			continue
 		}
+		allAttachments = append(allAttachments, attachmentDownloadOutputsFromInfo(msg.Id, attachments)...)
 	}
 
 	if outfmt.IsJSON(ctx) {
