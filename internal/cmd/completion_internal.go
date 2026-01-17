@@ -42,9 +42,11 @@ func completeWords(cword int, words []string) ([]string, error) {
 	}
 
 	node := root
+	terminatorIndex := -1
 	for i := start; i < cword && i < len(words); {
 		word := words[i]
 		if word == "--" {
+			terminatorIndex = i
 			break
 		}
 		if strings.HasPrefix(word, "-") {
@@ -69,6 +71,14 @@ func completeWords(cword int, words []string) ([]string, error) {
 			continue
 		}
 		i++
+	}
+
+	if terminatorIndex != -1 && cword >= terminatorIndex {
+		return nil, nil
+	}
+
+	if cword < len(words) && words[cword] == "--" {
+		return nil, nil
 	}
 
 	if cword > start && cword <= len(words) {
