@@ -46,7 +46,11 @@ func (c *ChatMessagesListCmd) Run(ctx context.Context, flags *RootFlags) error {
 	filters := make([]string, 0, 2)
 	thread := strings.TrimSpace(c.Thread)
 	if thread != "" {
-		filters = append(filters, fmt.Sprintf("thread.name = \"%s\"", thread))
+		threadName, err := normalizeThread(space, thread)
+		if err != nil {
+			return usage(fmt.Sprintf("invalid thread: %v", err))
+		}
+		filters = append(filters, fmt.Sprintf("thread.name = \"%s\"", threadName))
 	}
 	if c.Unread {
 		readState, readErr := svc.Users.Spaces.GetSpaceReadState(fmt.Sprintf("users/me/spaces/%s/spaceReadState", spaceID(space))).Do()
@@ -155,7 +159,11 @@ func (c *ChatMessagesSendCmd) Run(ctx context.Context, flags *RootFlags) error {
 	message := &chat.Message{Text: text}
 	thread := strings.TrimSpace(c.Thread)
 	if thread != "" {
-		message.Thread = &chat.Thread{Name: thread}
+		threadName, err := normalizeThread(space, thread)
+		if err != nil {
+			return usage(fmt.Sprintf("invalid thread: %v", err))
+		}
+		message.Thread = &chat.Thread{Name: threadName}
 	}
 
 	call := svc.Spaces.Messages.Create(space, message)

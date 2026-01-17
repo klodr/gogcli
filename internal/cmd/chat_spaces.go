@@ -219,13 +219,16 @@ func (c *ChatSpacesCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 		})
 	}
 
-	resp, err := svc.Spaces.Setup(&chat.SetUpSpaceRequest{
+	req := &chat.SetUpSpaceRequest{
 		Space: &chat.Space{
 			SpaceType:   "SPACE",
 			DisplayName: displayName,
 		},
-		Memberships: memberships,
-	}).Do()
+	}
+	if len(memberships) > 0 {
+		req.Memberships = memberships
+	}
+	resp, err := svc.Spaces.Setup(req).Do()
 	if err != nil {
 		return err
 	}

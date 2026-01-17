@@ -232,7 +232,7 @@ func TestExecute_ChatMessagesList_Text_Unread(t *testing.T) {
 
 	out := captureStdout(t, func() {
 		errOut := captureStderr(t, func() {
-			if err := Execute([]string{"--account", "a@b.com", "chat", "messages", "list", "spaces/aaa", "--unread"}); err != nil {
+			if err := Execute([]string{"--account", "a@b.com", "chat", "messages", "list", "spaces/aaa", "--unread", "--thread", "t1"}); err != nil {
 				t.Fatalf("Execute: %v", err)
 			}
 		})
@@ -246,6 +246,9 @@ func TestExecute_ChatMessagesList_Text_Unread(t *testing.T) {
 	if !strings.Contains(gotFilter, "createTime > \"2025-01-01T00:00:00Z\"") {
 		t.Fatalf("unexpected filter: %q", gotFilter)
 	}
+	if !strings.Contains(gotFilter, "thread.name = \"spaces/aaa/threads/t1\"") {
+		t.Fatalf("unexpected thread filter: %q", gotFilter)
+	}
 }
 
 func TestExecute_ChatMessagesSend_JSON(t *testing.T) {
@@ -253,6 +256,7 @@ func TestExecute_ChatMessagesSend_JSON(t *testing.T) {
 	t.Cleanup(func() { newChatService = origNew })
 
 	var gotText string
+	var gotThread string
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !(r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/messages")) {
@@ -262,6 +266,9 @@ func TestExecute_ChatMessagesSend_JSON(t *testing.T) {
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		gotText, _ = body["text"].(string)
+		if thread, ok := body["thread"].(map[string]any); ok {
+			gotThread, _ = thread["name"].(string)
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -282,13 +289,16 @@ func TestExecute_ChatMessagesSend_JSON(t *testing.T) {
 
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
-			if err := Execute([]string{"--json", "--account", "a@b.com", "chat", "messages", "send", "spaces/aaa", "--text", "hello"}); err != nil {
+			if err := Execute([]string{"--json", "--account", "a@b.com", "chat", "messages", "send", "spaces/aaa", "--text", "hello", "--thread", "t1"}); err != nil {
 				t.Fatalf("Execute: %v", err)
 			}
 		})
 	})
 	if gotText != "hello" {
 		t.Fatalf("unexpected text: %q", gotText)
+	}
+	if gotThread != "spaces/aaa/threads/t1" {
+		t.Fatalf("unexpected thread: %q", gotThread)
 	}
 	if !strings.Contains(out, "spaces/aaa/messages/msg2") {
 		t.Fatalf("unexpected out=%q", out)

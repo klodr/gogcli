@@ -33,6 +33,30 @@ func normalizeUser(resource string) string {
 	return "users/" + user
 }
 
+func normalizeThread(space, resource string) (string, error) {
+	thread := strings.TrimSpace(resource)
+	if thread == "" {
+		return "", fmt.Errorf("empty thread")
+	}
+	if strings.HasPrefix(thread, "spaces/") {
+		if !strings.Contains(thread, "/threads/") {
+			return "", fmt.Errorf("invalid thread resource %q", thread)
+		}
+		return thread, nil
+	}
+	if strings.HasPrefix(thread, "threads/") {
+		thread = strings.TrimPrefix(thread, "threads/")
+	}
+	if strings.Contains(thread, "/") {
+		return "", fmt.Errorf("invalid thread id %q", thread)
+	}
+	space, err := normalizeSpace(space)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s/threads/%s", space, thread), nil
+}
+
 func parseCommaArgs(values []string) []string {
 	out := make([]string, 0, len(values))
 	for _, raw := range values {

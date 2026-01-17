@@ -56,7 +56,11 @@ func (c *ChatDMSendCmd) Run(ctx context.Context, flags *RootFlags) error {
 	message := &chat.Message{Text: text}
 	thread := strings.TrimSpace(c.Thread)
 	if thread != "" {
-		message.Thread = &chat.Thread{Name: thread}
+		threadName, err := normalizeThread(space.Name, thread)
+		if err != nil {
+			return usage(fmt.Sprintf("invalid thread: %v", err))
+		}
+		message.Thread = &chat.Thread{Name: threadName}
 	}
 
 	call := svc.Spaces.Messages.Create(space.Name, message)
