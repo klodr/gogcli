@@ -172,3 +172,38 @@ func profileEmail(profile *classroom.UserProfile) string {
 func formatFloatValue(v float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", v), "0"), ".")
 }
+
+func scanClassroomTopicPages[T any](topicFilter string, pageToken string, scanPages int, fetch func(string) ([]T, string, error), topicID func(T) string) ([]T, string, error) {
+	topicFilter = strings.TrimSpace(topicFilter)
+	if scanPages <= 0 {
+		scanPages = 1
+	}
+
+	for page := 0; ; page++ {
+		items, nextPageToken, err := fetch(pageToken)
+		if err != nil {
+			return nil, "", err
+		}
+
+		if topicFilter == "" {
+			return items, nextPageToken, nil
+		}
+
+		filtered := make([]T, 0, len(items))
+		for _, item := range items {
+			if topicID(item) == topicFilter {
+				filtered = append(filtered, item)
+			}
+		}
+
+		if len(filtered) > 0 {
+			return filtered, nextPageToken, nil
+		}
+
+		if nextPageToken == "" || page+1 >= scanPages {
+			return filtered, nextPageToken, nil
+		}
+
+		pageToken = nextPageToken
+	}
+}

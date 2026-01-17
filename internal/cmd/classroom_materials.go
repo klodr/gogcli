@@ -46,7 +46,7 @@ func (c *ClassroomMaterialsListCmd) Run(ctx context.Context, flags *RootFlags) e
 		return wrapClassroomError(err)
 	}
 
-	makeCall := func(page string) *classroom.CoursesCourseWorkMaterialsListCall {
+	makeCall := func(page string) (*classroom.ListCourseWorkMaterialResponse, error) {
 		call := svc.Courses.CourseWorkMaterials.List(courseID).PageSize(c.Max).PageToken(page).Context(ctx)
 		if states := splitCSV(c.States); len(states) > 0 {
 			upper := make([]string, 0, len(states))
@@ -58,47 +58,29 @@ func (c *ClassroomMaterialsListCmd) Run(ctx context.Context, flags *RootFlags) e
 		if v := strings.TrimSpace(c.OrderBy); v != "" {
 			call.OrderBy(v)
 		}
-		return call
+		return call.Do()
 	}
 
-	topicFilter := strings.TrimSpace(c.Topic)
-	pageToken := c.Page
-	scanPages := c.ScanPages
-	if scanPages <= 0 {
-		scanPages = 1
-	}
-
-	var (
-		materials     []*classroom.CourseWorkMaterial
-		nextPageToken string
-	)
-	for page := 0; ; page++ {
-		resp, err := makeCall(pageToken).Do()
-		if err != nil {
-			return wrapClassroomError(err)
-		}
-		nextPageToken = resp.NextPageToken
-
-		if topicFilter == "" {
-			materials = resp.CourseWorkMaterial
-			break
-		}
-
-		filtered := make([]*classroom.CourseWorkMaterial, 0, len(resp.CourseWorkMaterial))
-		for _, material := range resp.CourseWorkMaterial {
-			if material != nil && material.TopicId == topicFilter {
-				filtered = append(filtered, material)
+	materials, nextPageToken, err := scanClassroomTopicPages(
+		c.Topic,
+		c.Page,
+		c.ScanPages,
+		func(page string) ([]*classroom.CourseWorkMaterial, string, error) {
+			resp, callErr := makeCall(page)
+			if callErr != nil {
+				return nil, "", callErr
 			}
-		}
-		if len(filtered) > 0 {
-			materials = filtered
-			break
-		}
-		if nextPageToken == "" || page+1 >= scanPages {
-			materials = filtered
-			break
-		}
-		pageToken = nextPageToken
+			return resp.CourseWorkMaterial, resp.NextPageToken, nil
+		},
+		func(material *classroom.CourseWorkMaterial) string {
+			if material == nil {
+				return ""
+			}
+			return material.TopicId
+		},
+	)
+	if err != nil {
+		return wrapClassroomError(err)
 	}
 
 	if outfmt.IsJSON(ctx) {

@@ -47,7 +47,7 @@ func (c *ClassroomCourseworkListCmd) Run(ctx context.Context, flags *RootFlags) 
 		return wrapClassroomError(err)
 	}
 
-	makeCall := func(page string) *classroom.CoursesCourseWorkListCall {
+	makeCall := func(page string) (*classroom.ListCourseWorkResponse, error) {
 		call := svc.Courses.CourseWork.List(courseID).PageSize(c.Max).PageToken(page).Context(ctx)
 		if states := splitCSV(c.States); len(states) > 0 {
 			upper := make([]string, 0, len(states))
@@ -59,47 +59,29 @@ func (c *ClassroomCourseworkListCmd) Run(ctx context.Context, flags *RootFlags) 
 		if v := strings.TrimSpace(c.OrderBy); v != "" {
 			call.OrderBy(v)
 		}
-		return call
+		return call.Do()
 	}
 
-	topicFilter := strings.TrimSpace(c.Topic)
-	pageToken := c.Page
-	scanPages := c.ScanPages
-	if scanPages <= 0 {
-		scanPages = 1
-	}
-
-	var (
-		coursework    []*classroom.CourseWork
-		nextPageToken string
-	)
-	for page := 0; ; page++ {
-		resp, err := makeCall(pageToken).Do()
-		if err != nil {
-			return wrapClassroomError(err)
-		}
-		nextPageToken = resp.NextPageToken
-
-		if topicFilter == "" {
-			coursework = resp.CourseWork
-			break
-		}
-
-		filtered := make([]*classroom.CourseWork, 0, len(resp.CourseWork))
-		for _, work := range resp.CourseWork {
-			if work != nil && work.TopicId == topicFilter {
-				filtered = append(filtered, work)
+	coursework, nextPageToken, err := scanClassroomTopicPages(
+		c.Topic,
+		c.Page,
+		c.ScanPages,
+		func(page string) ([]*classroom.CourseWork, string, error) {
+			resp, callErr := makeCall(page)
+			if callErr != nil {
+				return nil, "", callErr
 			}
-		}
-		if len(filtered) > 0 {
-			coursework = filtered
-			break
-		}
-		if nextPageToken == "" || page+1 >= scanPages {
-			coursework = filtered
-			break
-		}
-		pageToken = nextPageToken
+			return resp.CourseWork, resp.NextPageToken, nil
+		},
+		func(work *classroom.CourseWork) string {
+			if work == nil {
+				return ""
+			}
+			return work.TopicId
+		},
+	)
+	if err != nil {
+		return wrapClassroomError(err)
 	}
 
 	if outfmt.IsJSON(ctx) {

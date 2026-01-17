@@ -174,6 +174,26 @@ func UserServices() []Service {
 	return filteredServices(func(info serviceInfo) bool { return info.user })
 }
 
+func manageServices(services []Service) []Service {
+	if len(services) == 0 {
+		services = UserServices()
+	}
+
+	filtered := make([]Service, 0, len(services))
+	for _, svc := range services {
+		if svc == ServiceKeep {
+			continue
+		}
+		filtered = append(filtered, svc)
+	}
+
+	if len(filtered) == 0 {
+		return UserServices()
+	}
+
+	return filtered
+}
+
 func AllServices() []Service {
 	out := make([]Service, len(serviceOrder))
 	copy(out, serviceOrder)
