@@ -167,13 +167,7 @@ func (c *GmailDraftsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	attachments := collectAttachments(msg.Payload)
-	if len(attachments) > 0 {
-		u.Out().Println("Attachments:")
-		for _, a := range attachmentOutputs(attachments) {
-			u.Out().Println(attachmentLine(a))
-		}
-		u.Out().Println("")
-	}
+	printAttachmentSection(u.Out(), attachments)
 
 	if c.Download && msg.Id != "" && len(attachments) > 0 {
 		attachDir, err := config.EnsureGmailAttachmentsDir()

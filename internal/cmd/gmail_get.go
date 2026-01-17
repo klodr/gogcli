@@ -127,9 +127,7 @@ func (c *GmailGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 		attachments := attachmentOutputs(collectAttachments(msg.Payload))
 		if len(attachments) > 0 {
 			u.Out().Println("")
-			for _, a := range attachments {
-				u.Out().Println(attachmentLine(a))
-			}
+			printAttachmentLines(u.Out(), attachments)
 		}
 		if format == gmailFormatFull {
 			body := bestBodyText(msg.Payload)

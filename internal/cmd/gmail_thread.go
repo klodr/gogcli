@@ -168,13 +168,7 @@ func (c *GmailThreadGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 		}
 
 		attachments := collectAttachments(msg.Payload)
-		if len(attachments) > 0 {
-			u.Out().Println("Attachments:")
-			for _, a := range attachmentOutputs(attachments) {
-				u.Out().Println(attachmentLine(a))
-			}
-			u.Out().Println("")
-		}
+		printAttachmentSection(u.Out(), attachments)
 
 		if c.Download && len(attachments) > 0 {
 			for _, a := range attachments {
@@ -305,13 +299,6 @@ func (c *GmailThreadAttachmentsCmd) Run(ctx context.Context, flags *RootFlags) e
 		}
 	}
 
-	type attachmentDownloadOutput struct {
-		MessageID string `json:"messageId"`
-		attachmentOutput
-		Path   string `json:"path,omitempty"`
-		Cached bool   `json:"cached,omitempty"`
-	}
-
 	var allAttachments []attachmentDownloadOutput
 	for _, msg := range thread.Messages {
 		if msg == nil {
@@ -347,17 +334,17 @@ func (c *GmailThreadAttachmentsCmd) Run(ctx context.Context, flags *RootFlags) e
 	}
 
 	u.Out().Printf("Found %d attachment(s):\n", len(allAttachments))
-	for _, a := range allAttachments {
-		if c.Download {
+	if c.Download {
+		for _, a := range allAttachments {
 			status := "Saved"
 			if a.Cached {
 				status = "Cached"
 			}
 			u.Out().Printf("  %s: %s (%s) - %s", status, a.Filename, a.SizeHuman, a.Path)
-		} else {
-			u.Out().Println(attachmentLine(a.attachmentOutput))
 		}
+		return nil
 	}
+	printAttachmentLines(u.Out(), attachmentOutputsFromDownloads(allAttachments))
 	return nil
 }
 

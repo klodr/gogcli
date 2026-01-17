@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"google.golang.org/api/gmail/v1"
+
+	"github.com/steipete/gogcli/internal/ui"
 )
 
 type attachmentInfo struct {
@@ -20,6 +22,13 @@ type attachmentOutput struct {
 	SizeHuman    string `json:"sizeHuman"`
 	MimeType     string `json:"mimeType"`
 	AttachmentID string `json:"attachmentId"`
+}
+
+type attachmentDownloadOutput struct {
+	MessageID string `json:"messageId"`
+	attachmentOutput
+	Path   string `json:"path,omitempty"`
+	Cached bool   `json:"cached,omitempty"`
 }
 
 func attachmentOutputFromInfo(a attachmentInfo) attachmentOutput {
@@ -43,8 +52,35 @@ func attachmentOutputs(attachments []attachmentInfo) []attachmentOutput {
 	return out
 }
 
+func attachmentOutputsFromDownloads(attachments []attachmentDownloadOutput) []attachmentOutput {
+	if len(attachments) == 0 {
+		return nil
+	}
+	out := make([]attachmentOutput, len(attachments))
+	for i, a := range attachments {
+		out[i] = a.attachmentOutput
+	}
+	return out
+}
+
 func attachmentLine(a attachmentOutput) string {
 	return fmt.Sprintf("attachment\t%s\t%s\t%s\t%s", a.Filename, a.SizeHuman, a.MimeType, a.AttachmentID)
+}
+
+func printAttachmentLines(p *ui.Printer, attachments []attachmentOutput) {
+	for _, a := range attachments {
+		p.Println(attachmentLine(a))
+	}
+}
+
+func printAttachmentSection(p *ui.Printer, attachments []attachmentInfo) {
+	out := attachmentOutputs(attachments)
+	if len(out) == 0 {
+		return
+	}
+	p.Println("Attachments:")
+	printAttachmentLines(p, out)
+	p.Println("")
 }
 
 func collectAttachments(p *gmail.MessagePart) []attachmentInfo {
