@@ -247,7 +247,19 @@ func (c *TasksAddCmd) Run(ctx context.Context, flags *RootFlags) error {
 		if parseErr != nil {
 			return parseErr
 		}
-		if !dueHasTime && untilHasTime {
+		switch {
+		case dueHasTime && !untilHasTime:
+			untilValue = time.Date(
+				untilValue.Year(),
+				untilValue.Month(),
+				untilValue.Day(),
+				dueTime.Hour(),
+				dueTime.Minute(),
+				dueTime.Second(),
+				dueTime.Nanosecond(),
+				dueTime.Location(),
+			)
+		case !dueHasTime && untilHasTime:
 			untilValue = time.Date(untilValue.Year(), untilValue.Month(), untilValue.Day(), 0, 0, 0, 0, time.UTC)
 		}
 		until = &untilValue

@@ -167,12 +167,12 @@ func boolString(v bool) string {
 func newParser(description string) (*kong.Kong, *CLI, error) {
 	envMode := outfmt.FromEnv()
 	vars := kong.Vars{
-		"auth_services": googleauth.UserServiceCSV(),
-		"color":         envOr("GOG_COLOR", "auto"),
+		"auth_services":    googleauth.UserServiceCSV(),
+		"color":            envOr("GOG_COLOR", "auto"),
 		"enabled_commands": envOr("GOG_ENABLE_COMMANDS", ""),
-		"json":          boolString(envMode.JSON),
-		"plain":         boolString(envMode.Plain),
-		"version":       VersionString(),
+		"json":             boolString(envMode.JSON),
+		"plain":            boolString(envMode.Plain),
+		"version":          VersionString(),
 	}
 
 	cli := &CLI{}

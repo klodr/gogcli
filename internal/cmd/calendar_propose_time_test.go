@@ -234,6 +234,7 @@ func TestCalendarProposeTimeCmd_WithDecline(t *testing.T) {
 
 	var patchCalled bool
 	var patchedComment string
+	var sendUpdates string
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/calendar/v3")
@@ -252,6 +253,7 @@ func TestCalendarProposeTimeCmd_WithDecline(t *testing.T) {
 			})
 		case strings.Contains(path, "/calendars/cal1/events/evt1") && r.Method == http.MethodPatch:
 			patchCalled = true
+			sendUpdates = r.URL.Query().Get("sendUpdates")
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			if attendees, ok := body["attendees"].([]any); ok && len(attendees) > 0 {
@@ -295,6 +297,9 @@ func TestCalendarProposeTimeCmd_WithDecline(t *testing.T) {
 
 	if !patchCalled {
 		t.Error("PATCH was not called despite --comment flag")
+	}
+	if sendUpdates != "all" {
+		t.Errorf("expected sendUpdates=all, got %q", sendUpdates)
 	}
 	if patchedComment != "Can we do 5pm instead?" {
 		t.Errorf("comment not passed correctly, got: %q", patchedComment)

@@ -104,3 +104,66 @@ func TestTasksAddCmd_RepeatCreatesMultiple(t *testing.T) {
 		t.Fatalf("unexpected repeat output: %#v", parsed)
 	}
 }
+
+func TestTasksAddCmd_RepeatUntilDateOnlyWithTimeDue(t *testing.T) {
+	origNew := newTasksService
+	t.Cleanup(func() { newTasksService = origNew })
+
+	var gotDue []string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !(r.URL.Path == "/tasks/v1/lists/l1/tasks" && r.Method == http.MethodPost) {
+			http.NotFound(w, r)
+			return
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if due, ok := body["due"].(string); ok {
+			gotDue = append(gotDue, due)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":  "t1",
+			"due": body["due"],
+		})
+	}))
+	defer srv.Close()
+
+	svc, err := tasks.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newTasksService = func(context.Context, string) (*tasks.Service, error) { return svc, nil }
+
+	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui.New: %v", err)
+	}
+	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+
+	_ = captureStdout(t, func() {
+		if err := runKong(t, &TasksAddCmd{}, []string{
+			"l1",
+			"--title", "Task",
+			"--due", "2025-01-01T10:00:00Z",
+			"--repeat", "daily",
+			"--repeat-until", "2025-01-03",
+		}, ctx, &RootFlags{Account: "a@b.com"}); err != nil {
+			t.Fatalf("runKong: %v", err)
+		}
+	})
+
+	if len(gotDue) != 3 {
+		t.Fatalf("expected 3 tasks, got due=%d", len(gotDue))
+	}
+	if gotDue[0] != "2025-01-01T10:00:00Z" || gotDue[1] != "2025-01-02T10:00:00Z" || gotDue[2] != "2025-01-03T10:00:00Z" {
+		t.Fatalf("unexpected due schedule: %#v", gotDue)
+	}
+}

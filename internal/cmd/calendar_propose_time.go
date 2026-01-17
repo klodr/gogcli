@@ -97,7 +97,7 @@ func (c *CalendarProposeTimeCmd) Run(ctx context.Context, flags *RootFlags) erro
 			Attendees: event.Attendees,
 		}
 
-		if _, err := svc.Events.Patch(calendarID, eventID, patchEvent).Do(); err != nil {
+		if _, err := svc.Events.Patch(calendarID, eventID, patchEvent).SendUpdates("all").Do(); err != nil {
 			return fmt.Errorf("failed to decline event: %w", err)
 		}
 	}
