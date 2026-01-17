@@ -7,7 +7,7 @@ Google in your terminal — CLI for Gmail, Calendar, Classroom, Drive, Docs, Sli
 - **Gmail** - search threads, send emails, manage labels, drafts, filters, delegation, vacation settings, and watch (Pub/Sub push)
 - **Email tracking** - track opens for `gog gmail send --track` with a small Cloudflare Worker backend
 - **Calendar** - list/create/update events, detect conflicts, manage invitations, check free/busy status, team calendars, propose new times, focus/OOO/working-location events, recurrence + reminders
-- **Classroom** - list courses, rosters, coursework, submissions, announcements, topics, invitations, guardians
+- **Classroom** - manage courses, roster, coursework/materials, submissions, announcements, topics, invitations, guardians, profiles
 - **Drive** - list/search/upload/download files, manage permissions, organize folders
 - **Contacts** - search/create/update contacts, access Workspace directory
 - **Tasks** - manage tasklists and tasks: get/create/add/update/done/undo/delete/clear, repeat schedules
@@ -248,8 +248,9 @@ Service scope matrix (auto-generated; run `go run scripts/gen-auth-services-md.g
 <!-- auth-services:start -->
 | Service | User | APIs | Scopes | Notes |
 | --- | --- | --- | --- | --- |
-| gmail | yes | Gmail API | `https://mail.google.com/`<br>`https://www.googleapis.com/auth/gmail.settings.basic`<br>`https://www.googleapis.com/auth/gmail.settings.sharing` |  |
+| gmail | yes | Gmail API | `https://www.googleapis.com/auth/gmail.modify`<br>`https://www.googleapis.com/auth/gmail.settings.basic`<br>`https://www.googleapis.com/auth/gmail.settings.sharing` |  |
 | calendar | yes | Calendar API | `https://www.googleapis.com/auth/calendar` |  |
+| classroom | yes | Classroom API | `https://www.googleapis.com/auth/classroom.courses`<br>`https://www.googleapis.com/auth/classroom.rosters`<br>`https://www.googleapis.com/auth/classroom.coursework.students`<br>`https://www.googleapis.com/auth/classroom.coursework.me`<br>`https://www.googleapis.com/auth/classroom.courseworkmaterials`<br>`https://www.googleapis.com/auth/classroom.announcements`<br>`https://www.googleapis.com/auth/classroom.topics`<br>`https://www.googleapis.com/auth/classroom.guardianlinks.students`<br>`https://www.googleapis.com/auth/classroom.profile.emails`<br>`https://www.googleapis.com/auth/classroom.profile.photos` |  |
 | drive | yes | Drive API | `https://www.googleapis.com/auth/drive` |  |
 | docs | yes | Docs API, Drive API | `https://www.googleapis.com/auth/drive`<br>`https://www.googleapis.com/auth/documents` | Export/copy/create via Drive |
 | contacts | yes | People API | `https://www.googleapis.com/auth/contacts`<br>`https://www.googleapis.com/auth/contacts.other.readonly`<br>`https://www.googleapis.com/auth/directory.readonly` | Contacts + other contacts + directory |
@@ -822,6 +823,76 @@ Note: Groups commands require the Cloud Identity API and the `cloud-identity.gro
 ```bash
 gog auth add your@email.com --services groups --force-consent
 ```
+
+### Classroom (Google Workspace for Education)
+
+```bash
+# Courses
+gog classroom courses list
+gog classroom courses list --role teacher
+gog classroom courses get <courseId>
+gog classroom courses create --name "Math 101"
+gog classroom courses update <courseId> --name "Math 102"
+gog classroom courses archive <courseId>
+gog classroom courses unarchive <courseId>
+gog classroom courses url <courseId>
+
+# Roster
+gog classroom roster <courseId>
+gog classroom roster <courseId> --students
+gog classroom students add <courseId> <userId>
+gog classroom teachers add <courseId> <userId>
+
+# Coursework
+gog classroom coursework list <courseId>
+gog classroom coursework get <courseId> <courseworkId>
+gog classroom coursework create <courseId> --title "Homework 1" --type ASSIGNMENT --state PUBLISHED
+gog classroom coursework update <courseId> <courseworkId> --title "Updated"
+gog classroom coursework assignees <courseId> <courseworkId> --mode INDIVIDUAL_STUDENTS --add-student <studentId>
+
+# Materials
+gog classroom materials list <courseId>
+gog classroom materials create <courseId> --title "Syllabus" --state PUBLISHED
+
+# Submissions
+gog classroom submissions list <courseId> <courseworkId>
+gog classroom submissions get <courseId> <courseworkId> <submissionId>
+gog classroom submissions grade <courseId> <courseworkId> <submissionId> --grade 85
+gog classroom submissions return <courseId> <courseworkId> <submissionId>
+gog classroom submissions turn-in <courseId> <courseworkId> <submissionId>
+gog classroom submissions reclaim <courseId> <courseworkId> <submissionId>
+
+# Announcements
+gog classroom announcements list <courseId>
+gog classroom announcements create <courseId> --text "Welcome!"
+gog classroom announcements update <courseId> <announcementId> --text "Updated"
+gog classroom announcements assignees <courseId> <announcementId> --mode INDIVIDUAL_STUDENTS --add-student <studentId>
+
+# Topics
+gog classroom topics list <courseId>
+gog classroom topics create <courseId> --name "Unit 1"
+gog classroom topics update <courseId> <topicId> --name "Unit 2"
+
+# Invitations
+gog classroom invitations list
+gog classroom invitations create <courseId> <userId> --role student
+gog classroom invitations accept <invitationId>
+
+# Guardians
+gog classroom guardians list <studentId>
+gog classroom guardians get <studentId> <guardianId>
+gog classroom guardians delete <studentId> <guardianId>
+
+# Guardian invitations
+gog classroom guardian-invitations list <studentId>
+gog classroom guardian-invitations create <studentId> --email parent@example.com
+
+# Profiles
+gog classroom profile get
+gog classroom profile get <userId>
+```
+
+Note: Classroom commands require a Google Workspace for Education account. Personal Google accounts have limited Classroom functionality.
 
 ### Docs
 
