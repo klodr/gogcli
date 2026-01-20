@@ -122,6 +122,14 @@ func (c *GmailSendCmd) Run(ctx context.Context, flags *RootFlags) error {
 		if sa.DisplayName != "" {
 			fromAddr = sa.DisplayName + " <" + c.From + ">"
 		}
+	} else {
+		// No --from specified: look up the primary account's send-as settings
+		// to get the display name
+		sa, saErr := svc.Users.Settings.SendAs.Get("me", account).Context(ctx).Do()
+		if saErr == nil && sa.DisplayName != "" {
+			fromAddr = sa.DisplayName + " <" + account + ">"
+		}
+		// If lookup fails, we just use the plain email address (no error)
 	}
 
 	// Fetch reply info (includes recipient headers for reply-all)
