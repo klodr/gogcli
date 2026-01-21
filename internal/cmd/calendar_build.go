@@ -185,8 +185,9 @@ func buildReminders(reminders []string) (*calendar.EventReminders, error) {
 	}
 
 	return &calendar.EventReminders{
-		UseDefault: false,
-		Overrides:  overrides,
+		UseDefault:      false,
+		Overrides:       overrides,
+		ForceSendFields: []string{"UseDefault"},
 	}, nil
 }
 
