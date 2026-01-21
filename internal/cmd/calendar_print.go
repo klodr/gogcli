@@ -3,23 +3,47 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/api/calendar/v3"
 
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-func printCalendarEvent(u *ui.UI, event *calendar.Event) {
+func printCalendarEventWithTimezone(u *ui.UI, event *calendar.Event, calendarTimezone string, loc *time.Location) {
 	if u == nil || event == nil {
 		return
 	}
+	eventTimezone := eventTimezone(event)
+	calendarTimezone, loc = resolveEventTimezone(event, calendarTimezone, loc)
+
 	u.Out().Printf("id\t%s", event.Id)
 	u.Out().Printf("summary\t%s", orEmpty(event.Summary, "(no title)"))
 	if event.EventType != "" && event.EventType != eventTypeDefault {
 		u.Out().Printf("type\t%s", event.EventType)
 	}
+	if calendarTimezone != "" {
+		u.Out().Printf("timezone\t%s", calendarTimezone)
+	}
+	if eventTimezone != "" && eventTimezone != calendarTimezone {
+		u.Out().Printf("event-timezone\t%s", eventTimezone)
+	}
+
 	u.Out().Printf("start\t%s", eventStart(event))
+	startDay, endDay := eventDaysOfWeek(event)
+	if startDay != "" {
+		u.Out().Printf("start-day-of-week\t%s", startDay)
+	}
+	if startLocal := formatEventLocal(event.Start, loc); startLocal != "" {
+		u.Out().Printf("start-local\t%s", startLocal)
+	}
 	u.Out().Printf("end\t%s", eventEnd(event))
+	if endDay != "" {
+		u.Out().Printf("end-day-of-week\t%s", endDay)
+	}
+	if endLocal := formatEventLocal(event.End, loc); endLocal != "" {
+		u.Out().Printf("end-local\t%s", endLocal)
+	}
 	if event.Description != "" {
 		u.Out().Printf("description\t%s", event.Description)
 	}
@@ -35,18 +59,7 @@ func printCalendarEvent(u *ui.UI, event *calendar.Event) {
 	if event.Transparency == "transparent" {
 		u.Out().Printf("show-as\tfree")
 	}
-	if len(event.Attendees) > 0 {
-		for _, a := range event.Attendees {
-			if a == nil || strings.TrimSpace(a.Email) == "" {
-				continue
-			}
-			status := a.ResponseStatus
-			if a.Optional {
-				status += " (optional)"
-			}
-			u.Out().Printf("attendee\t%s\t%s", strings.TrimSpace(a.Email), status)
-		}
-	}
+	printEventAttendees(u, event.Attendees)
 	if event.GuestsCanInviteOthers != nil && !*event.GuestsCanInviteOthers {
 		u.Out().Printf("guests-can-invite\tfalse")
 	}
@@ -69,19 +82,7 @@ func printCalendarEvent(u *ui.UI, event *calendar.Event) {
 	if len(event.Recurrence) > 0 {
 		u.Out().Printf("recurrence\t%s", strings.Join(event.Recurrence, "; "))
 	}
-	if event.Reminders != nil {
-		if event.Reminders.UseDefault {
-			u.Out().Printf("reminders\t(calendar default)")
-		} else if len(event.Reminders.Overrides) > 0 {
-			reminders := make([]string, 0, len(event.Reminders.Overrides))
-			for _, r := range event.Reminders.Overrides {
-				if r != nil {
-					reminders = append(reminders, fmt.Sprintf("%s:%dm", r.Method, r.Minutes))
-				}
-			}
-			u.Out().Printf("reminders\t%s", strings.Join(reminders, ", "))
-		}
-	}
+	printEventReminders(u, event.Reminders)
 	if len(event.Attachments) > 0 {
 		for _, a := range event.Attachments {
 			if a != nil {
@@ -136,9 +137,77 @@ func eventEnd(e *calendar.Event) string {
 	return e.End.Date
 }
 
+func eventTimezone(e *calendar.Event) string {
+	if e == nil {
+		return ""
+	}
+	if e.Start != nil && strings.TrimSpace(e.Start.TimeZone) != "" {
+		return strings.TrimSpace(e.Start.TimeZone)
+	}
+	if e.End != nil && strings.TrimSpace(e.End.TimeZone) != "" {
+		return strings.TrimSpace(e.End.TimeZone)
+	}
+	return ""
+}
+
+func formatEventLocal(dt *calendar.EventDateTime, loc *time.Location) string {
+	if dt == nil {
+		return ""
+	}
+	if dt.DateTime != "" {
+		if loc == nil && strings.TrimSpace(dt.TimeZone) != "" {
+			if loaded, err := time.LoadLocation(strings.TrimSpace(dt.TimeZone)); err == nil {
+				loc = loaded
+			}
+		}
+		if t, ok := parseEventTime(dt.DateTime, dt.TimeZone); ok {
+			if loc != nil {
+				return t.In(loc).Format(time.RFC3339)
+			}
+			return t.Format(time.RFC3339)
+		}
+	}
+	if dt.Date != "" {
+		return dt.Date
+	}
+	return ""
+}
+
 func orEmpty(s string, fallback string) string {
 	if strings.TrimSpace(s) == "" {
 		return fallback
 	}
 	return s
+}
+
+func printEventAttendees(u *ui.UI, attendees []*calendar.EventAttendee) {
+	for _, a := range attendees {
+		if a == nil || strings.TrimSpace(a.Email) == "" {
+			continue
+		}
+		status := a.ResponseStatus
+		if a.Optional {
+			status += " (optional)"
+		}
+		u.Out().Printf("attendee\t%s\t%s", strings.TrimSpace(a.Email), status)
+	}
+}
+
+func printEventReminders(u *ui.UI, reminders *calendar.EventReminders) {
+	if reminders == nil {
+		return
+	}
+	if reminders.UseDefault {
+		u.Out().Printf("reminders\t(calendar default)")
+		return
+	}
+	if len(reminders.Overrides) > 0 {
+		parts := make([]string, 0, len(reminders.Overrides))
+		for _, r := range reminders.Overrides {
+			if r != nil {
+				parts = append(parts, fmt.Sprintf("%s:%dm", r.Method, r.Minutes))
+			}
+		}
+		u.Out().Printf("reminders\t%s", strings.Join(parts, ", "))
+	}
 }
