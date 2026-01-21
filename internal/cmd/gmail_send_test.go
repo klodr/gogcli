@@ -316,6 +316,194 @@ func TestGmailSendCmd_RunJSON_WithFrom(t *testing.T) {
 	}
 }
 
+func TestGmailSendCmd_RunJSON_PrimaryAccountDisplayName(t *testing.T) {
+	origNew := newGmailService
+	t.Cleanup(func() { newGmailService = origNew })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/gmail/v1")
+		switch {
+		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs/a@b.com":
+			// Return send-as settings with display name for primary account
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"sendAsEmail":        "a@b.com",
+				"displayName":        "Primary User",
+				"verificationStatus": "accepted",
+			})
+			return
+		case r.Method == http.MethodPost && path == "/users/me/messages/send":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":       "m3",
+				"threadId": "t3",
+			})
+			return
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	}))
+	defer srv.Close()
+
+	svc, err := gmail.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
+
+	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui.New: %v", err)
+	}
+	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+
+	cmd := &GmailSendCmd{
+		To:      "recipient@example.com",
+		Subject: "Hello",
+		Body:    "Body",
+		// Note: No From field set - testing primary account display name lookup
+	}
+
+	out := captureStdout(t, func() {
+		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	})
+	// Verify the From field in output includes display name
+	if !strings.Contains(out, "\"from\"") || !strings.Contains(out, "Primary User <a@b.com>") {
+		t.Fatalf("expected from with display name, got: %q", out)
+	}
+}
+
+func TestGmailSendCmd_RunJSON_PrimaryAccountNoDisplayName(t *testing.T) {
+	origNew := newGmailService
+	t.Cleanup(func() { newGmailService = origNew })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/gmail/v1")
+		switch {
+		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs/a@b.com":
+			// Return send-as settings WITHOUT display name
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"sendAsEmail":        "a@b.com",
+				"displayName":        "", // No display name
+				"verificationStatus": "accepted",
+			})
+			return
+		case r.Method == http.MethodPost && path == "/users/me/messages/send":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":       "m4",
+				"threadId": "t4",
+			})
+			return
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	}))
+	defer srv.Close()
+
+	svc, err := gmail.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
+
+	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui.New: %v", err)
+	}
+	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+
+	cmd := &GmailSendCmd{
+		To:      "recipient@example.com",
+		Subject: "Hello",
+		Body:    "Body",
+	}
+
+	out := captureStdout(t, func() {
+		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	})
+	// Verify the From field in output is just the email (no angle brackets)
+	// JSON output has space after colon, e.g., "from": "a@b.com"
+	if !strings.Contains(out, "\"from\": \"a@b.com\"") {
+		t.Fatalf("expected from without display name, got: %q", out)
+	}
+}
+
+func TestGmailSendCmd_RunJSON_PrimaryAccountLookupFails(t *testing.T) {
+	origNew := newGmailService
+	t.Cleanup(func() { newGmailService = origNew })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/gmail/v1")
+		switch {
+		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs/a@b.com":
+			// Simulate send-as lookup failure (404)
+			http.NotFound(w, r)
+			return
+		case r.Method == http.MethodPost && path == "/users/me/messages/send":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":       "m5",
+				"threadId": "t5",
+			})
+			return
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	}))
+	defer srv.Close()
+
+	svc, err := gmail.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	newGmailService = func(context.Context, string) (*gmail.Service, error) { return svc, nil }
+
+	u, err := ui.New(ui.Options{Stdout: os.Stdout, Stderr: os.Stderr, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui.New: %v", err)
+	}
+	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+
+	cmd := &GmailSendCmd{
+		To:      "recipient@example.com",
+		Subject: "Hello",
+		Body:    "Body",
+	}
+
+	// Should NOT fail even if send-as lookup fails - should gracefully fall back to plain email
+	out := captureStdout(t, func() {
+		if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
+			t.Fatalf("Run: %v (should not fail when send-as lookup fails for primary account)", err)
+		}
+	})
+	// Verify the From field in output is just the email
+	// JSON output has space after colon, e.g., "from": "a@b.com"
+	if !strings.Contains(out, "\"from\": \"a@b.com\"") {
+		t.Fatalf("expected from with plain email on lookup failure, got: %q", out)
+	}
+}
+
 func TestGmailSendCmd_Run_FromUnverified(t *testing.T) {
 	origNew := newGmailService
 	t.Cleanup(func() { newGmailService = origNew })
