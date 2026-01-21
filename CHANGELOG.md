@@ -13,6 +13,7 @@
 - Chat: normalize thread IDs and show a clearer error for consumer accounts. (#84)
 - CLI: remove redundant newlines in text output for calendar, chat, Gmail, and groups commands. (#91) — thanks @salmonumbrella.
 - Gmail: include primary account display name in send From header when available. (#93) — thanks @salmonumbrella.
+- Keyring: persist OAuth tokens across Homebrew upgrades. (#94) — thanks @salmonumbrella.
 
 ## 0.7.0 - 2026-01-17
 
