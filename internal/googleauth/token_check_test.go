@@ -22,7 +22,7 @@ func TestCheckRefreshTokenSuccess(t *testing.T) {
 		oauthEndpoint = origEndpoint
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 
@@ -47,7 +47,7 @@ func TestCheckRefreshTokenSuccess(t *testing.T) {
 
 	oauthEndpoint = oauth2.Endpoint{AuthURL: srv.URL, TokenURL: srv.URL}
 
-	if err := CheckRefreshToken(context.Background(), "good", []string{"scope"}, time.Second); err != nil {
+	if err := CheckRefreshToken(context.Background(), "default", "good", []string{"scope"}, time.Second); err != nil {
 		t.Fatalf("CheckRefreshToken: %v", err)
 	}
 }
@@ -61,7 +61,7 @@ func TestCheckRefreshTokenFailure(t *testing.T) {
 		oauthEndpoint = origEndpoint
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 
@@ -72,7 +72,7 @@ func TestCheckRefreshTokenFailure(t *testing.T) {
 
 	oauthEndpoint = oauth2.Endpoint{AuthURL: srv.URL, TokenURL: srv.URL}
 
-	err := CheckRefreshToken(context.Background(), "bad", []string{"scope"}, time.Second)
+	err := CheckRefreshToken(context.Background(), "default", "bad", []string{"scope"}, time.Second)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -83,11 +83,11 @@ func TestCheckRefreshTokenReadCredentialsError(t *testing.T) {
 
 	t.Cleanup(func() { readClientCredentials = origRead })
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{}, errBoom
 	}
 
-	err := CheckRefreshToken(context.Background(), "good", []string{"scope"}, time.Second)
+	err := CheckRefreshToken(context.Background(), "default", "good", []string{"scope"}, time.Second)
 	if err == nil {
 		t.Fatalf("expected error")
 	}

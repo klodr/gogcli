@@ -16,6 +16,7 @@ run_core_tests() {
   fi
 
   run_required "auth" "auth list" "$BIN" auth list --json >/dev/null
+  run_required "auth" "auth credentials list" "$BIN" auth credentials list --json >/dev/null
   run_required "auth" "auth services" "$BIN" auth services --json >/dev/null
   run_required "auth" "auth status" "$BIN" auth status --json >/dev/null
   run_required "auth" "auth tokens list" "$BIN" auth tokens list --json >/dev/null

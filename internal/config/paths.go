@@ -61,12 +61,25 @@ func EnsureKeyringDir() (string, error) {
 }
 
 func ClientCredentialsPath() (string, error) {
+	return ClientCredentialsPathFor(DefaultClientName)
+}
+
+func ClientCredentialsPathFor(client string) (string, error) {
 	dir, err := Dir()
 	if err != nil {
 		return "", err
 	}
 
-	return filepath.Join(dir, "credentials.json"), nil
+	normalized, err := NormalizeClientNameOrDefault(client)
+	if err != nil {
+		return "", err
+	}
+
+	if normalized == DefaultClientName {
+		return filepath.Join(dir, "credentials.json"), nil
+	}
+
+	return filepath.Join(dir, fmt.Sprintf("credentials-%s.json", normalized)), nil
 }
 
 func DriveDownloadsDir() (string, error) {

@@ -7,6 +7,7 @@ ALLOW_NONTEST=false
 ACCOUNT=""
 SKIP=""
 AUTH_SERVICES=""
+CLIENT=""
 
 usage() {
   cat <<'USAGE'
@@ -19,6 +20,7 @@ Options:
   --account <email>   Account to use (defaults to GOG_IT_ACCOUNT or first auth)
   --skip <list>       Comma-separated skip list (e.g., gmail,drive,docs)
   --auth <services>   Re-auth before running (e.g., all,groups)
+  --client <name>     OAuth client to use (passes GOG_CLIENT)
   -h, --help          Show this help
 
 Skip keys (base):
@@ -39,6 +41,7 @@ Env:
   GOG_LIVE_CALENDAR_RESPOND=1
   GOG_LIVE_GMAIL_BATCH_DELETE=1
   GOG_LIVE_GMAIL_FILTERS=1
+  GOG_LIVE_CLIENT=work
   GOG_LIVE_GMAIL_WATCH_TOPIC=projects/.../topics/...
   GOG_LIVE_CALENDAR_RECURRENCE=1
   GOG_KEEP_SERVICE_ACCOUNT=/path/to/service-account.json
@@ -69,6 +72,10 @@ while [ $# -gt 0 ]; do
       AUTH_SERVICES="$2"
       shift
       ;;
+    --client)
+      CLIENT="$2"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -88,6 +95,9 @@ fi
 if [ -z "$AUTH_SERVICES" ] && [ -n "${GOG_LIVE_AUTH:-}" ]; then
   AUTH_SERVICES="$GOG_LIVE_AUTH"
 fi
+if [ -z "$CLIENT" ] && [ -n "${GOG_LIVE_CLIENT:-}" ]; then
+  CLIENT="$GOG_LIVE_CLIENT"
+fi
 
 SKIP="${SKIP:-${GOG_LIVE_SKIP:-}}"
 if [ "$FAST" = true ]; then
@@ -101,6 +111,11 @@ fi
 BIN="${GOG_BIN:-./bin/gog}"
 if [ ! -x "$BIN" ]; then
   make build >/dev/null
+fi
+
+if [ -n "$CLIENT" ]; then
+  export GOG_CLIENT="$CLIENT"
+  echo "Using OAuth client: $CLIENT"
 fi
 
 PY="${PYTHON:-python3}"

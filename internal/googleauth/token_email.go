@@ -11,7 +11,7 @@ import (
 )
 
 // EmailForRefreshToken exchanges a refresh token and returns the authorized email address.
-func EmailForRefreshToken(ctx context.Context, refreshToken string, scopes []string, timeout time.Duration) (string, error) {
+func EmailForRefreshToken(ctx context.Context, client string, refreshToken string, scopes []string, timeout time.Duration) (string, error) {
 	if strings.TrimSpace(refreshToken) == "" {
 		return "", errMissingToken
 	}
@@ -20,7 +20,7 @@ func EmailForRefreshToken(ctx context.Context, refreshToken string, scopes []str
 		timeout = 15 * time.Second
 	}
 
-	creds, err := readClientCredentials()
+	creds, err := readClientCredentials(client)
 	if err != nil {
 		return "", fmt.Errorf("read credentials: %w", err)
 	}

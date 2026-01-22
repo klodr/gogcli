@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/googleauth"
 	"github.com/steipete/gogcli/internal/secrets"
 )
@@ -34,7 +35,7 @@ func TestAuthAddCmd_JSON(t *testing.T) {
 		gotOpts = opts
 		return "rt", nil
 	}
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) {
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		return "user@example.com", nil
 	}
 
@@ -73,7 +74,7 @@ func TestAuthAddCmd_JSON(t *testing.T) {
 	if !parsed.Stored || parsed.Email != "user@example.com" || len(parsed.Services) != 2 {
 		t.Fatalf("unexpected response: %#v", parsed)
 	}
-	tok, err := store.GetToken("user@example.com")
+	tok, err := store.GetToken(config.DefaultClientName, "user@example.com")
 	if err != nil {
 		t.Fatalf("GetToken: %v", err)
 	}
@@ -104,7 +105,7 @@ func TestAuthAddCmd_KeychainError(t *testing.T) {
 		authCalled = true
 		return "rt", nil
 	}
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) {
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		t.Fatal("fetchAuthorizedEmail should not be called when keychain check fails")
 		return "", nil
 	}
@@ -148,7 +149,7 @@ func TestAuthAddCmd_DefaultServices_UserPreset(t *testing.T) {
 		gotOpts = opts
 		return "rt", nil
 	}
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) {
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		return "user@example.com", nil
 	}
 
@@ -214,7 +215,7 @@ func TestAuthAddCmd_EmailMismatch(t *testing.T) {
 	authorizeGoogle = func(context.Context, googleauth.AuthorizeOptions) (string, error) {
 		return "rt", nil
 	}
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) {
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		return "actual@example.com", nil
 	}
 
@@ -251,7 +252,7 @@ func TestAuthAddCmd_ReadonlyScopes(t *testing.T) {
 		gotOpts.Scopes = append([]string(nil), opts.Scopes...)
 		return "rt", nil
 	}
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) {
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		return "user@example.com", nil
 	}
 
@@ -321,7 +322,7 @@ func TestAuthAddCmd_DriveScopeFile(t *testing.T) {
 		gotOpts.Scopes = append([]string(nil), opts.Scopes...)
 		return "rt", nil
 	}
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) {
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		return "user@example.com", nil
 	}
 
@@ -388,7 +389,7 @@ func TestAuthAddCmd_SheetsReadonlyIncludesDriveReadonly(t *testing.T) {
 		gotOpts.Scopes = append([]string(nil), opts.Scopes...)
 		return "rt", nil
 	}
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) {
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		return "user@example.com", nil
 	}
 
@@ -440,7 +441,7 @@ func TestAuthAddCmd_SheetsDriveScopeFile(t *testing.T) {
 		gotOpts.Scopes = append([]string(nil), opts.Scopes...)
 		return "rt", nil
 	}
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) {
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		return "user@example.com", nil
 	}
 

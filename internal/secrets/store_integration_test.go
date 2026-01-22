@@ -36,13 +36,14 @@ func TestSetAndGetSecret_FileBackend(t *testing.T) {
 func TestKeyringStore_TokenRoundTrip(t *testing.T) {
 	ring := keyring.NewArrayKeyring(nil)
 	store := &KeyringStore{ring: ring}
+	client := config.DefaultClientName
 
 	tok := Token{RefreshToken: "rt", Services: []string{"gmail"}, Scopes: []string{"s"}, CreatedAt: time.Now()}
-	if err := store.SetToken("a@b.com", tok); err != nil {
+	if err := store.SetToken(client, "a@b.com", tok); err != nil {
 		t.Fatalf("SetToken: %v", err)
 	}
 
-	if got, err := store.GetToken("a@b.com"); err != nil {
+	if got, err := store.GetToken(client, "a@b.com"); err != nil {
 		t.Fatalf("GetToken: %v", err)
 	} else if got.RefreshToken != "rt" {
 		t.Fatalf("unexpected token: %#v", got)

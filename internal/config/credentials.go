@@ -49,12 +49,16 @@ func ParseGoogleOAuthClientJSON(b []byte) (ClientCredentials, error) {
 }
 
 func WriteClientCredentials(c ClientCredentials) error {
+	return WriteClientCredentialsFor(DefaultClientName, c)
+}
+
+func WriteClientCredentialsFor(client string, c ClientCredentials) error {
 	_, err := EnsureDir()
 	if err != nil {
 		return fmt.Errorf("ensure config dir: %w", err)
 	}
 
-	path, err := ClientCredentialsPath()
+	path, err := ClientCredentialsPathFor(client)
 	if err != nil {
 		return fmt.Errorf("resolve credentials path: %w", err)
 	}
@@ -80,7 +84,11 @@ func WriteClientCredentials(c ClientCredentials) error {
 }
 
 func ReadClientCredentials() (ClientCredentials, error) {
-	path, err := ClientCredentialsPath()
+	return ReadClientCredentialsFor(DefaultClientName)
+}
+
+func ReadClientCredentialsFor(client string) (ClientCredentials, error) {
+	path, err := ClientCredentialsPathFor(client)
 	if err != nil {
 		return ClientCredentials{}, fmt.Errorf("resolve credentials path: %w", err)
 	}
@@ -104,6 +112,23 @@ func ReadClientCredentials() (ClientCredentials, error) {
 	}
 
 	return c, nil
+}
+
+func ClientCredentialsExists(client string) (bool, error) {
+	path, err := ClientCredentialsPathFor(client)
+	if err != nil {
+		return false, err
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("stat credentials: %w", err)
+	}
+
+	return true, nil
 }
 
 type CredentialsMissingError struct {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/alecthomas/kong"
 
+	"github.com/steipete/gogcli/internal/authclient"
 	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/errfmt"
 	"github.com/steipete/gogcli/internal/googleauth"
@@ -25,6 +26,7 @@ const (
 type RootFlags struct {
 	Color          string `help:"Color output: auto|always|never" default:"${color}"`
 	Account        string `help:"Account email for API commands (gmail/calendar/chat/classroom/drive/docs/slides/contacts/tasks/people/sheets)"`
+	Client         string `help:"OAuth client name (selects stored credentials + token bucket)" default:"${client}"`
 	EnableCommands string `help:"Comma-separated list of enabled top-level commands (restricts CLI)" default:"${enabled_commands}"`
 	JSON           bool   `help:"Output JSON to stdout (best for scripting)" default:"${json}"`
 	Plain          bool   `help:"Output stable, parseable text to stdout (TSV; no colors)" default:"${plain}"`
@@ -108,6 +110,7 @@ func Execute(args []string) (err error) {
 
 	ctx := context.Background()
 	ctx = outfmt.WithMode(ctx, mode)
+	ctx = authclient.WithClient(ctx, cli.Client)
 
 	uiColor := cli.Color
 	if outfmt.IsJSON(ctx) || outfmt.IsPlain(ctx) {
@@ -171,6 +174,7 @@ func newParser(description string) (*kong.Kong, *CLI, error) {
 		"auth_services":    googleauth.UserServiceCSV(),
 		"color":            envOr("GOG_COLOR", "auto"),
 		"calendar_weekday": envOr("GOG_CALENDAR_WEEKDAY", "false"),
+		"client":           envOr("GOG_CLIENT", ""),
 		"enabled_commands": envOr("GOG_ENABLE_COMMANDS", ""),
 		"json":             boolString(envMode.JSON),
 		"plain":            boolString(envMode.Plain),

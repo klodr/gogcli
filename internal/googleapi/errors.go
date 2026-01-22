@@ -9,10 +9,15 @@ import (
 type AuthRequiredError struct {
 	Service string
 	Email   string
+	Client  string
 	Cause   error
 }
 
 func (e *AuthRequiredError) Error() string {
+	if e.Client != "" {
+		return fmt.Sprintf("auth required for %s %s (client %s)", e.Service, e.Email, e.Client)
+	}
+
 	return fmt.Sprintf("auth required for %s %s", e.Service, e.Email)
 }
 

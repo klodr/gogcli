@@ -53,7 +53,7 @@ func printCalendarEventWithTimezone(u *ui.UI, event *calendar.Event, calendarTim
 	if event.ColorId != "" {
 		u.Out().Printf("color\t%s", event.ColorId)
 	}
-	if event.Visibility != "" && event.Visibility != "default" {
+	if event.Visibility != "" && event.Visibility != eventTypeDefault {
 		u.Out().Printf("visibility\t%s", event.Visibility)
 	}
 	if event.Transparency == "transparent" {

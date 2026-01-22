@@ -88,6 +88,13 @@ Before adding an account, create OAuth2 credentials from Google Cloud Console:
 gog auth credentials ~/Downloads/client_secret_....json
 ```
 
+For multiple OAuth clients/projects:
+
+```bash
+gog --client work auth credentials ~/Downloads/work-client.json
+gog auth credentials list
+```
+
 ### 3. Authorize Your Account
 
 ```bash
@@ -109,7 +116,7 @@ gog gmail labels list
 
 `gog` stores your OAuth refresh tokens in a “keyring” backend. Default is `auto` (best available backend for your OS/environment).
 
-Before you can run `gog auth add`, you must store OAuth client credentials once via `gog auth credentials <credentials.json>` (download a Desktop app OAuth client JSON from the Cloud Console).
+Before you can run `gog auth add`, you must store OAuth client credentials once via `gog auth credentials <credentials.json>` (download a Desktop app OAuth client JSON from the Cloud Console). For multiple clients, use `gog --client <name> auth credentials ...`; tokens are isolated per client.
 
 List accounts:
 
@@ -130,6 +137,52 @@ Show current auth state/services for the active account:
 ```bash
 gog auth status
 ```
+
+### Multiple OAuth clients
+
+Use `--client` (or `GOG_CLIENT`) to select a named OAuth client:
+
+```bash
+gog --client work auth credentials ~/Downloads/work.json
+gog --client work auth add you@company.com
+```
+
+Optional domain mapping for auto-selection:
+
+```bash
+gog --client work auth credentials ~/Downloads/work.json --domain example.com
+```
+
+How it works:
+
+- Default client is `default` (stored in `credentials.json`).
+- Named clients are stored as `credentials-<client>.json`.
+- Tokens are isolated per client (`token:<client>:<email>`); defaults are per client too.
+
+Client selection order (when `--client` is not set):
+
+1) `--client` / `GOG_CLIENT`
+2) `account_clients` config (email -> client)
+3) `client_domains` config (domain -> client)
+4) Credentials file named after the email domain (`credentials-example.com.json`)
+5) `default`
+
+Config example (JSON5):
+
+```json5
+{
+  account_clients: { "you@company.com": "work" },
+  client_domains: { "example.com": "work" },
+}
+```
+
+List stored credentials:
+
+```bash
+gog auth credentials list
+```
+
+See `docs/auth-clients.md` for the full client selection and mapping rules.
 
 ### Keyring backend: Keychain vs encrypted file
 
@@ -317,6 +370,7 @@ gog keep get <noteId> --account you@yourdomain.com
 ### Environment Variables
 
 - `GOG_ACCOUNT` - Default account email or alias to use (avoids repeating `--account`; otherwise uses keyring default or a single stored token)
+- `GOG_CLIENT` - OAuth client name (selects stored credentials + token bucket)
 - `GOG_JSON` - Default JSON output
 - `GOG_PLAIN` - Default plain output
 - `GOG_COLOR` - Color mode: `auto` (default), `always`, or `never`
@@ -345,6 +399,14 @@ Example (JSON5 supports comments and trailing commas):
   account_aliases: {
     work: "work@company.com",
     personal: "me@gmail.com",
+  },
+  // Optional per-account OAuth client selection
+  account_clients: {
+    "work@company.com": "work",
+  },
+  // Optional domain -> client mapping
+  client_domains: {
+    "example.com": "work",
   },
 }
 ```
@@ -423,6 +485,8 @@ Flag aliases:
 
 ```bash
 gog auth credentials <path>           # Store OAuth client credentials
+gog auth credentials list             # List stored OAuth client credentials
+gog --client work auth credentials <path>  # Store named OAuth client credentials
 gog auth add <email>                  # Authorize and store refresh token
 gog auth service-account set <email> --key <path>  # Configure service account impersonation (Workspace only)
 gog auth service-account status <email>            # Show service account status
@@ -1247,6 +1311,7 @@ Opt-in tests that hit real Google APIs using your stored `gog` credentials/token
 ```bash
 # Optional: override which account to use
 export GOG_IT_ACCOUNT=you@gmail.com
+export GOG_CLIENT=work
 go test -tags=integration ./...
 ```
 
@@ -1259,11 +1324,13 @@ Fast end-to-end smoke checks against live APIs:
 ```bash
 scripts/live-test.sh --fast
 scripts/live-test.sh --account you@gmail.com --skip groups,keep,calendar-enterprise
+scripts/live-test.sh --client work --account you@company.com
 ```
 
 Script toggles:
 
 - `--auth all,groups` to re-auth before running
+- `--client <name>` to select OAuth client credentials
 - `--strict` to fail on optional features (groups/keep/enterprise)
 - `--allow-nontest` to override the test-account guardrail
 

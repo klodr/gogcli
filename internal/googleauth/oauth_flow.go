@@ -28,6 +28,7 @@ type AuthorizeOptions struct {
 	Manual       bool
 	ForceConsent bool
 	Timeout      time.Duration
+	Client       string
 }
 
 // postSuccessDisplaySeconds is the number of seconds the success page remains
@@ -43,7 +44,7 @@ type successTemplateData struct {
 }
 
 var (
-	readClientCredentials = config.ReadClientCredentials
+	readClientCredentials = config.ReadClientCredentialsFor
 	openBrowserFn         = openBrowser
 	oauthEndpoint         = google.Endpoint
 	randomStateFn         = randomState
@@ -69,7 +70,7 @@ func Authorize(ctx context.Context, opts AuthorizeOptions) (string, error) {
 
 	var creds config.ClientCredentials
 
-	if c, err := readClientCredentials(); err != nil {
+	if c, err := readClientCredentials(opts.Client); err != nil {
 		return "", err
 	} else {
 		creds = c

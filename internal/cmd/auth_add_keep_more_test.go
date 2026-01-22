@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/googleauth"
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/secrets"
@@ -36,7 +37,7 @@ func TestAuthAddCmd_JSON_More(t *testing.T) {
 		}
 		return "rt", nil
 	}
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) {
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		return "a@b.com", nil
 	}
 	ensureKeychainAccess = func() error { return nil }
@@ -56,7 +57,7 @@ func TestAuthAddCmd_JSON_More(t *testing.T) {
 	if !strings.Contains(out, "\"stored\"") {
 		t.Fatalf("unexpected output: %q", out)
 	}
-	if _, err := store.GetToken("a@b.com"); err != nil {
+	if _, err := store.GetToken(config.DefaultClientName, "a@b.com"); err != nil {
 		t.Fatalf("expected token stored: %v", err)
 	}
 }

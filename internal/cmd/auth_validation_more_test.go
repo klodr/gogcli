@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/googleauth"
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/secrets"
@@ -24,7 +25,7 @@ func TestAuthCredentialsCmd_ErrorsAndStdin(t *testing.T) {
 	}
 	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
 
-	if err := (&AuthCredentialsCmd{Path: "/nope/credentials.json"}).Run(ctx); err == nil {
+	if err := (&AuthCredentialsSetCmd{Path: "/nope/credentials.json"}).Run(ctx); err == nil {
 		t.Fatalf("expected read error")
 	}
 
@@ -32,7 +33,7 @@ func TestAuthCredentialsCmd_ErrorsAndStdin(t *testing.T) {
 	if err := os.WriteFile(tmp, []byte("nope"), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if err := (&AuthCredentialsCmd{Path: tmp}).Run(ctx); err == nil {
+	if err := (&AuthCredentialsSetCmd{Path: tmp}).Run(ctx); err == nil {
 		t.Fatalf("expected parse error")
 	}
 
@@ -41,7 +42,7 @@ func TestAuthCredentialsCmd_ErrorsAndStdin(t *testing.T) {
 	creds := `{"installed":{"client_id":"id","client_secret":"secret"}}`
 	out := captureStdout(t, func() {
 		withStdin(t, creds, func() {
-			if err := (&AuthCredentialsCmd{Path: "-"}).Run(ctx); err != nil {
+			if err := (&AuthCredentialsSetCmd{Path: "-"}).Run(ctx); err != nil {
 				t.Fatalf("stdin run: %v", err)
 			}
 		})
@@ -85,15 +86,15 @@ type memStoreErr struct {
 	deleteErr error
 }
 
-func (m *memStoreErr) Keys() ([]string, error)              { return nil, m.keysErr }
-func (m *memStoreErr) SetToken(string, secrets.Token) error { return nil }
-func (m *memStoreErr) GetToken(string) (secrets.Token, error) {
+func (m *memStoreErr) Keys() ([]string, error)                      { return nil, m.keysErr }
+func (m *memStoreErr) SetToken(string, string, secrets.Token) error { return nil }
+func (m *memStoreErr) GetToken(string, string) (secrets.Token, error) {
 	return secrets.Token{}, errors.New("missing")
 }
-func (m *memStoreErr) DeleteToken(string) error             { return m.deleteErr }
-func (m *memStoreErr) ListTokens() ([]secrets.Token, error) { return nil, nil }
-func (m *memStoreErr) GetDefaultAccount() (string, error)   { return "", nil }
-func (m *memStoreErr) SetDefaultAccount(string) error       { return nil }
+func (m *memStoreErr) DeleteToken(string, string) error         { return m.deleteErr }
+func (m *memStoreErr) ListTokens() ([]secrets.Token, error)     { return nil, m.keysErr }
+func (m *memStoreErr) GetDefaultAccount(string) (string, error) { return "", nil }
+func (m *memStoreErr) SetDefaultAccount(string, string) error   { return nil }
 
 func TestAuthTokensDelete_Errors(t *testing.T) {
 	origOpen := openSecretsStore
@@ -157,7 +158,7 @@ func TestAuthTokensExport_UsageAndErrors(t *testing.T) {
 
 	store := newMemStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
-	_ = store.SetToken("a@b.com", secrets.Token{Email: "a@b.com", RefreshToken: "rt"})
+	_ = store.SetToken(config.DefaultClientName, "a@b.com", secrets.Token{Email: "a@b.com", RefreshToken: "rt"})
 
 	blocker := filepath.Join(t.TempDir(), "blocker")
 	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
@@ -242,7 +243,7 @@ func TestAuthAdd_TextOutput(t *testing.T) {
 	store := newMemStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
 	authorizeGoogle = func(context.Context, googleauth.AuthorizeOptions) (string, error) { return "rt", nil }
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) { return "a@b.com", nil }
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) { return "a@b.com", nil }
 	ensureKeychainAccess = func() error { return nil }
 
 	var outBuf strings.Builder
@@ -297,7 +298,7 @@ func TestAuthTokensExport_UsesCreatedAt(t *testing.T) {
 
 	store := newMemStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
-	_ = store.SetToken("a@b.com", secrets.Token{
+	_ = store.SetToken(config.DefaultClientName, "a@b.com", secrets.Token{
 		Email:        "a@b.com",
 		RefreshToken: "rt",
 		CreatedAt:    time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),

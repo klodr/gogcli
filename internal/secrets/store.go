@@ -17,12 +17,12 @@ import (
 
 type Store interface {
 	Keys() ([]string, error)
-	SetToken(email string, tok Token) error
-	GetToken(email string) (Token, error)
-	DeleteToken(email string) error
+	SetToken(client string, email string, tok Token) error
+	GetToken(client string, email string) (Token, error)
+	DeleteToken(client string, email string) error
 	ListTokens() ([]Token, error)
-	GetDefaultAccount() (string, error)
-	SetDefaultAccount(email string) error
+	GetDefaultAccount(client string) (string, error)
+	SetDefaultAccount(client string, email string) error
 }
 
 type KeyringStore struct {
@@ -30,6 +30,7 @@ type KeyringStore struct {
 }
 
 type Token struct {
+	Client       string    `json:"client,omitempty"`
 	Email        string    `json:"email"`
 	Services     []string  `json:"services,omitempty"`
 	Scopes       []string  `json:"scopes,omitempty"`
@@ -300,7 +301,7 @@ type storedToken struct {
 	CreatedAt    time.Time `json:"created_at,omitempty"`
 }
 
-func (s *KeyringStore) SetToken(email string, tok Token) error {
+func (s *KeyringStore) SetToken(client string, email string, tok Token) error {
 	email = normalize(email)
 	if email == "" {
 		return errMissingEmail
@@ -308,6 +309,11 @@ func (s *KeyringStore) SetToken(email string, tok Token) error {
 
 	if tok.RefreshToken == "" {
 		return errMissingRefreshToken
+	}
+
+	normalizedClient, err := normalizeClient(client)
+	if err != nil {
+		return err
 	}
 
 	if tok.CreatedAt.IsZero() {
@@ -325,35 +331,61 @@ func (s *KeyringStore) SetToken(email string, tok Token) error {
 	}
 
 	if err := s.ring.Set(keyring.Item{
-		Key:  tokenKey(email),
+		Key:  tokenKey(normalizedClient, email),
 		Data: payload,
 	}); err != nil {
 		return wrapKeychainError(fmt.Errorf("store token: %w", err))
 	}
 
+	if normalizedClient == config.DefaultClientName {
+		if err := s.ring.Set(keyring.Item{
+			Key:  legacyTokenKey(email),
+			Data: payload,
+		}); err != nil {
+			return wrapKeychainError(fmt.Errorf("store legacy token: %w", err))
+		}
+	}
+
 	return nil
 }
 
-func (s *KeyringStore) GetToken(email string) (Token, error) {
+func (s *KeyringStore) GetToken(client string, email string) (Token, error) {
 	email = normalize(email)
 	if email == "" {
 		return Token{}, errMissingEmail
 	}
 
-	var it keyring.Item
-
-	if item, err := s.ring.Get(tokenKey(email)); err != nil {
-		return Token{}, fmt.Errorf("read token: %w", err)
-	} else {
-		it = item
+	normalizedClient, err := normalizeClient(client)
+	if err != nil {
+		return Token{}, err
 	}
-	var st storedToken
 
-	if err := json.Unmarshal(it.Data, &st); err != nil {
+	item, err := s.ring.Get(tokenKey(normalizedClient, email))
+	if err != nil {
+		if normalizedClient == config.DefaultClientName {
+			if legacyItem, legacyErr := s.ring.Get(legacyTokenKey(email)); legacyErr == nil {
+				item = legacyItem
+				if migrateErr := s.ring.Set(keyring.Item{
+					Key:  tokenKey(normalizedClient, email),
+					Data: legacyItem.Data,
+				}); migrateErr != nil {
+					return Token{}, wrapKeychainError(fmt.Errorf("migrate token: %w", migrateErr))
+				}
+			} else {
+				return Token{}, fmt.Errorf("read token: %w", err)
+			}
+		} else {
+			return Token{}, fmt.Errorf("read token: %w", err)
+		}
+	}
+
+	var st storedToken
+	if err := json.Unmarshal(item.Data, &st); err != nil {
 		return Token{}, fmt.Errorf("decode token: %w", err)
 	}
 
 	return Token{
+		Client:       normalizedClient,
 		Email:        email,
 		Services:     st.Services,
 		Scopes:       st.Scopes,
@@ -362,14 +394,25 @@ func (s *KeyringStore) GetToken(email string) (Token, error) {
 	}, nil
 }
 
-func (s *KeyringStore) DeleteToken(email string) error {
+func (s *KeyringStore) DeleteToken(client string, email string) error {
 	email = normalize(email)
 	if email == "" {
 		return errMissingEmail
 	}
 
-	if err := s.ring.Remove(tokenKey(email)); err != nil {
+	normalizedClient, err := normalizeClient(client)
+	if err != nil {
+		return err
+	}
+
+	if err := s.ring.Remove(tokenKey(normalizedClient, email)); err != nil && !errors.Is(err, keyring.ErrKeyNotFound) {
 		return fmt.Errorf("delete token: %w", err)
+	}
+
+	if normalizedClient == config.DefaultClientName {
+		if err := s.ring.Remove(legacyTokenKey(email)); err != nil && !errors.Is(err, keyring.ErrKeyNotFound) {
+			return fmt.Errorf("delete legacy token: %w", err)
+		}
 	}
 
 	return nil
@@ -381,20 +424,28 @@ func (s *KeyringStore) ListTokens() ([]Token, error) {
 		return nil, fmt.Errorf("list tokens: %w", err)
 	}
 	out := make([]Token, 0)
+	seen := make(map[string]struct{})
 
 	for _, k := range keys {
-		email, ok := ParseTokenKey(k)
+		client, email, ok := ParseTokenKey(k)
 		if !ok {
+			continue
+		}
+
+		key := client + "\n" + email
+		if _, ok := seen[key]; ok {
 			continue
 		}
 
 		var tok Token
 
-		if t, err := s.GetToken(email); err != nil {
+		if t, err := s.GetToken(client, email); err != nil {
 			return nil, fmt.Errorf("read token for %s: %w", email, err)
 		} else {
 			tok = t
 		}
+
+		seen[key] = struct{}{}
 
 		out = append(out, tok)
 	}
@@ -402,31 +453,78 @@ func (s *KeyringStore) ListTokens() ([]Token, error) {
 	return out, nil
 }
 
-func ParseTokenKey(k string) (email string, ok bool) {
+func ParseTokenKey(k string) (client string, email string, ok bool) {
 	const prefix = "token:"
 	if !strings.HasPrefix(k, prefix) {
-		return "", false
+		return "", "", false
 	}
 	rest := strings.TrimPrefix(k, prefix)
 
 	if strings.TrimSpace(rest) == "" {
-		return "", false
+		return "", "", false
 	}
 
-	return rest, true
+	if !strings.Contains(rest, ":") {
+		return config.DefaultClientName, rest, true
+	}
+
+	parts := strings.SplitN(rest, ":", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+
+	if strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+		return "", "", false
+	}
+
+	return parts[0], parts[1], true
 }
 
-func tokenKey(email string) string {
+func tokenKey(client string, email string) string {
+	return fmt.Sprintf("token:%s:%s", client, email)
+}
+
+func legacyTokenKey(email string) string {
 	return fmt.Sprintf("token:%s", email)
+}
+
+func TokenKey(client string, email string) string {
+	return tokenKey(client, normalize(email))
 }
 
 func normalize(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))
 }
 
+func normalizeClient(raw string) (string, error) {
+	client, err := config.NormalizeClientNameOrDefault(raw)
+	if err != nil {
+		return "", fmt.Errorf("normalize client: %w", err)
+	}
+
+	return client, nil
+}
+
 const defaultAccountKey = "default_account"
 
-func (s *KeyringStore) GetDefaultAccount() (string, error) {
+func defaultAccountKeyForClient(client string) string {
+	return fmt.Sprintf("default_account:%s", client)
+}
+
+func (s *KeyringStore) GetDefaultAccount(client string) (string, error) {
+	normalizedClient, err := normalizeClient(client)
+	if err != nil {
+		return "", err
+	}
+
+	if normalizedClient != "" {
+		if it, getErr := s.ring.Get(defaultAccountKeyForClient(normalizedClient)); getErr == nil {
+			return string(it.Data), nil
+		} else if !errors.Is(getErr, keyring.ErrKeyNotFound) {
+			return "", fmt.Errorf("read default account: %w", getErr)
+		}
+	}
+
 	it, err := s.ring.Get(defaultAccountKey)
 	if err != nil {
 		if errors.Is(err, keyring.ErrKeyNotFound) {
@@ -439,10 +537,24 @@ func (s *KeyringStore) GetDefaultAccount() (string, error) {
 	return string(it.Data), nil
 }
 
-func (s *KeyringStore) SetDefaultAccount(email string) error {
+func (s *KeyringStore) SetDefaultAccount(client string, email string) error {
 	email = normalize(email)
 	if email == "" {
 		return errMissingEmail
+	}
+
+	normalizedClient, err := normalizeClient(client)
+	if err != nil {
+		return err
+	}
+
+	if normalizedClient != "" {
+		if err := s.ring.Set(keyring.Item{
+			Key:  defaultAccountKeyForClient(normalizedClient),
+			Data: []byte(email),
+		}); err != nil {
+			return fmt.Errorf("store default account: %w", err)
+		}
 	}
 
 	if err := s.ring.Set(keyring.Item{

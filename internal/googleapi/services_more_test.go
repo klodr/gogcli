@@ -19,7 +19,7 @@ func TestNewServicesWithStoredToken(t *testing.T) {
 		openSecretsStore = origOpen
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 

@@ -65,10 +65,13 @@ Implementation: `internal/ui/ui.go`.
 ### OAuth client credentials (non-secret-ish)
 
 - Stored on disk in the per-user config directory:
-  - `$(os.UserConfigDir())/gogcli/credentials.json`
+  - `$(os.UserConfigDir())/gogcli/credentials.json` (default client)
+  - `$(os.UserConfigDir())/gogcli/credentials-<client>.json` (named clients)
 - Written with mode `0600`.
 - Command:
   - `gog auth credentials <credentials.json>`
+  - `gog --client <name> auth credentials <credentials.json>`
+  - `gog auth credentials list`
 - Supports Google’s downloaded JSON format:
   - `installed.client_id/client_secret` or `web.client_id/client_secret`
 
@@ -78,7 +81,8 @@ Implementation: `internal/config/*`.
 
 - Stored in OS credential store via `github.com/99designs/keyring`.
 - Key namespace is `gogcli` (keyring `ServiceName`).
-- Key format: `token:<email>`
+- Key format: `token:<client>:<email>` (default client uses `token:default:<email>`)
+- Legacy key format: `token:<email>` (migrated on first read)
 - Stored payload is JSON (refresh token + metadata like selected services/scopes).
 - Fallback: if no OS credential store is available, keyring may use its encrypted "file" backend:
   - Directory: `$(os.UserConfigDir())/gogcli/keyring/` (one file per key)
@@ -111,7 +115,8 @@ Scope selection note:
 - Base config dir: `$(os.UserConfigDir())/gogcli/`
 - Files:
   - `config.json` (JSON5; comments and trailing commas allowed)
-  - `credentials.json` (OAuth client id/secret)
+  - `credentials.json` (OAuth client id/secret; default client)
+  - `credentials-<client>.json` (OAuth client id/secret; named clients)
 - State:
   - `state/gmail-watch/<account>.json` (Gmail watch state)
 - Secrets:
@@ -122,6 +127,7 @@ We intentionally avoid storing refresh tokens in plain JSON on disk.
 Environment:
 
 - `GOG_ACCOUNT=you@gmail.com` (email or alias; used when `--account` is not set; otherwise uses keyring default or a single stored token)
+- `GOG_CLIENT=work` (select OAuth client bucket; see `--client`)
 - `GOG_KEYRING_PASSWORD=...` (used when keyring falls back to encrypted file backend in non-interactive environments)
 - `GOG_KEYRING_BACKEND={auto|keychain|file}` (force backend; use `file` to avoid Keychain prompts and pair with `GOG_KEYRING_PASSWORD` for non-interactive)
 - `GOG_TIMEZONE=America/New_York` (default output timezone; IANA name or `UTC`; `local` forces local timezone)
@@ -129,6 +135,7 @@ Environment:
 - `config.json` can also set `keyring_backend` (JSON5; env vars take precedence)
 - `config.json` can also set `default_timezone` (IANA name or `UTC`)
 - `config.json` can also set `account_aliases` for `gog auth alias` (JSON5)
+- `config.json` can also set `account_clients` (email -> client) and `client_domains` (domain -> client)
 
 Flag aliases:
 - `--out` also accepts `--output`.
@@ -139,6 +146,8 @@ Flag aliases:
 ### Implemented
 
 - `gog auth credentials <credentials.json|->`
+- `gog auth credentials list`
+- `gog --client <name> auth credentials <credentials.json|->`
 - `gog auth add <email> [--services user|all|gmail,calendar,classroom,drive,docs,contacts,tasks,sheets,people,groups] [--readonly] [--drive-scope full|readonly|file] [--manual] [--force-consent]`
 - `gog auth services [--markdown]`
 - `gog auth keep <email> --key <service-account.json>` (Google Keep; Workspace only)
@@ -297,6 +306,8 @@ Flag aliases:
 
 - `gog auth …`
   - `gog auth credentials <credentials.json>`
+  - `gog auth credentials list`
+  - `gog --client <name> auth credentials <credentials.json>`
 - `gog gmail …`
 - `gog chat …`
 - `gog calendar …`
@@ -400,10 +411,11 @@ Commands:
 There is an opt-in integration test suite guarded by build tags (not run in CI).
 
 - Requires:
-  - stored `credentials.json` via `gog auth credentials ...`
+  - stored `credentials.json` (or `credentials-<client>.json`) via `gog auth credentials ...`
   - refresh token in keyring via `gog auth add <email>`
 - Run:
   - `GOG_IT_ACCOUNT=you@gmail.com go test -tags=integration ./internal/integration`
+  - optional: `GOG_CLIENT=work` to select a non-default OAuth client
 
 ## CI (GitHub Actions)
 

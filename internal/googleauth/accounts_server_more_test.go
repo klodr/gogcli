@@ -93,7 +93,7 @@ func TestManageServerHandleOAuthCallback_ReadCredsError(t *testing.T) {
 
 	t.Cleanup(func() { readClientCredentials = origRead })
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{}, errTestStoreBoom
 	}
 
@@ -124,7 +124,7 @@ func TestManageServerHandleOAuthCallback_ScopesError(t *testing.T) {
 
 	t.Cleanup(func() { readClientCredentials = origRead })
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 
@@ -160,7 +160,7 @@ func TestManageServerHandleOAuthCallback_ExchangeError(t *testing.T) {
 		oauthEndpoint = origEndpoint
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 
@@ -204,7 +204,7 @@ func TestManageServerHandleOAuthCallback_MissingRefreshToken(t *testing.T) {
 		oauthEndpoint = origEndpoint
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 
@@ -253,7 +253,7 @@ func TestManageServerHandleOAuthCallback_FetchEmailError(t *testing.T) {
 		oauthEndpoint = origEndpoint
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 

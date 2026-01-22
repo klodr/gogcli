@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/googleauth"
 	"github.com/steipete/gogcli/internal/secrets"
 )
@@ -34,7 +35,7 @@ func TestExecute_AuthAdd_JSON(t *testing.T) {
 		gotOpts.Scopes = append([]string{}, opts.Scopes...)
 		return "rt", nil
 	}
-	fetchAuthorizedEmail = func(context.Context, string, []string, time.Duration) (string, error) {
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
 		return "a@b.com", nil
 	}
 
@@ -58,7 +59,7 @@ func TestExecute_AuthAdd_JSON(t *testing.T) {
 		t.Fatalf("unexpected: %#v", parsed)
 	}
 
-	tok, err := store.GetToken("a@b.com")
+	tok, err := store.GetToken(config.DefaultClientName, "a@b.com")
 	if err != nil {
 		t.Fatalf("GetToken: %v", err)
 	}

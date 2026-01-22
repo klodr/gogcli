@@ -9,12 +9,12 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func CheckRefreshToken(ctx context.Context, refreshToken string, scopes []string, timeout time.Duration) error {
+func CheckRefreshToken(ctx context.Context, client string, refreshToken string, scopes []string, timeout time.Duration) error {
 	if timeout <= 0 {
 		timeout = 15 * time.Second
 	}
 
-	creds, err := readClientCredentials()
+	creds, err := readClientCredentials(client)
 	if err != nil {
 		return fmt.Errorf("read credentials: %w", err)
 	}

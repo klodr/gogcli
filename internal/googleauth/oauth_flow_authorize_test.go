@@ -72,7 +72,7 @@ func TestAuthorize_Manual_Success(t *testing.T) {
 		randomStateFn = origState
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 	randomStateFn = func() (string, error) { return "state123", nil }
@@ -123,7 +123,7 @@ func TestAuthorize_Manual_Success_NoNewline(t *testing.T) {
 		randomStateFn = origState
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 	randomStateFn = func() (string, error) { return "state123", nil }
@@ -174,7 +174,7 @@ func TestAuthorize_Manual_CancelEOF(t *testing.T) {
 		randomStateFn = origState
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 	randomStateFn = func() (string, error) { return "state123", nil }
@@ -219,7 +219,7 @@ func TestAuthorize_Manual_StateMismatch(t *testing.T) {
 		randomStateFn = origState
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 	randomStateFn = func() (string, error) { return "state123", nil }
@@ -265,7 +265,7 @@ func TestAuthorize_ServerFlow_Success(t *testing.T) {
 		openBrowserFn = origOpen
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 
@@ -345,7 +345,7 @@ func TestAuthorize_ServerFlow_CallbackErrors(t *testing.T) {
 				openBrowserFn = origOpen
 			})
 
-			readClientCredentials = func() (config.ClientCredentials, error) {
+			readClientCredentials = func(string) (config.ClientCredentials, error) {
 				return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 			}
 

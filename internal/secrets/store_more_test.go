@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/99designs/keyring"
+
+	"github.com/steipete/gogcli/internal/config"
 )
 
 var errTestKeychain = errors.New("test -25308 error")
@@ -15,14 +17,15 @@ var errTestKeychain = errors.New("test -25308 error")
 func TestKeyringStore_ListDeleteDefault(t *testing.T) {
 	ring := keyring.NewArrayKeyring(nil)
 	store := &KeyringStore{ring: ring}
+	client := config.DefaultClientName
 
 	tok1 := Token{Email: "a@b.com", RefreshToken: "rt1", CreatedAt: time.Now()}
-	if err := store.SetToken(tok1.Email, tok1); err != nil {
+	if err := store.SetToken(client, tok1.Email, tok1); err != nil {
 		t.Fatalf("SetToken: %v", err)
 	}
 
 	tok2 := Token{Email: "c@d.com", RefreshToken: "rt2", CreatedAt: time.Now()}
-	if err := store.SetToken(tok2.Email, tok2); err != nil {
+	if err := store.SetToken(client, tok2.Email, tok2); err != nil {
 		t.Fatalf("SetToken: %v", err)
 	}
 
@@ -35,38 +38,42 @@ func TestKeyringStore_ListDeleteDefault(t *testing.T) {
 		t.Fatalf("expected 2 tokens, got %d", len(tokens))
 	}
 
-	err = store.DeleteToken(tok1.Email)
+	err = store.DeleteToken(client, tok1.Email)
 	if err != nil {
 		t.Fatalf("DeleteToken: %v", err)
 	}
 
-	if _, getErr := store.GetToken(tok1.Email); getErr == nil {
+	if _, getErr := store.GetToken(client, tok1.Email); getErr == nil {
 		t.Fatalf("expected error for deleted token")
 	}
 
-	err = store.SetDefaultAccount("a@b.com")
+	err = store.SetDefaultAccount(client, "a@b.com")
 	if err != nil {
 		t.Fatalf("SetDefaultAccount: %v", err)
 	}
 
-	if def, err := store.GetDefaultAccount(); err != nil {
+	if def, err := store.GetDefaultAccount(client); err != nil {
 		t.Fatalf("GetDefaultAccount: %v", err)
 	} else if def != "a@b.com" {
 		t.Fatalf("unexpected default account: %q", def)
 	}
 
 	emptyStore := &KeyringStore{ring: keyring.NewArrayKeyring(nil)}
-	if def, err := emptyStore.GetDefaultAccount(); err != nil || def != "" {
+	if def, err := emptyStore.GetDefaultAccount(client); err != nil || def != "" {
 		t.Fatalf("expected empty default account, got %q err=%v", def, err)
 	}
 }
 
 func TestParseTokenKey(t *testing.T) {
-	if email, ok := ParseTokenKey("token:a@b.com"); !ok || email != "a@b.com" {
-		t.Fatalf("unexpected parse: %q ok=%v", email, ok)
+	if client, email, ok := ParseTokenKey("token:a@b.com"); !ok || email != "a@b.com" || client != config.DefaultClientName {
+		t.Fatalf("unexpected parse: client=%q email=%q ok=%v", client, email, ok)
 	}
 
-	if _, ok := ParseTokenKey("nope"); ok {
+	if client, email, ok := ParseTokenKey("token:org:a@b.com"); !ok || email != "a@b.com" || client != "org" {
+		t.Fatalf("unexpected parse: client=%q email=%q ok=%v", client, email, ok)
+	}
+
+	if _, _, ok := ParseTokenKey("nope"); ok {
 		t.Fatalf("expected invalid token key")
 	}
 }
@@ -112,12 +119,13 @@ func TestFileKeyringPasswordFuncFrom(t *testing.T) {
 
 func TestKeyringStoreSetTokenErrors(t *testing.T) {
 	store := &KeyringStore{ring: keyring.NewArrayKeyring(nil)}
+	client := config.DefaultClientName
 
-	if err := store.SetToken(" ", Token{RefreshToken: "rt"}); !errors.Is(err, errMissingEmail) {
+	if err := store.SetToken(client, " ", Token{RefreshToken: "rt"}); !errors.Is(err, errMissingEmail) {
 		t.Fatalf("expected missing email, got %v", err)
 	}
 
-	if err := store.SetToken("a@b.com", Token{}); !errors.Is(err, errMissingRefreshToken) {
+	if err := store.SetToken(client, "a@b.com", Token{}); !errors.Is(err, errMissingRefreshToken) {
 		t.Fatalf("expected missing refresh token, got %v", err)
 	}
 }
@@ -144,12 +152,13 @@ func TestOpenDefaultError(t *testing.T) {
 
 func TestKeyringStoreDeleteAndDefaultErrors(t *testing.T) {
 	store := &KeyringStore{ring: keyring.NewArrayKeyring(nil)}
+	client := config.DefaultClientName
 
-	if err := store.DeleteToken(" "); !errors.Is(err, errMissingEmail) {
+	if err := store.DeleteToken(client, " "); !errors.Is(err, errMissingEmail) {
 		t.Fatalf("expected missing email, got %v", err)
 	}
 
-	if err := store.SetDefaultAccount(" "); !errors.Is(err, errMissingEmail) {
+	if err := store.SetDefaultAccount(client, " "); !errors.Is(err, errMissingEmail) {
 		t.Fatalf("expected missing email, got %v", err)
 	}
 }

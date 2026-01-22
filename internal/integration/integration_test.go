@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/steipete/gogcli/internal/authclient"
+	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/googleapi"
 	"github.com/steipete/gogcli/internal/googleauth"
 	"github.com/steipete/gogcli/internal/secrets"
@@ -26,7 +28,7 @@ func integrationAccount(t *testing.T) string {
 		t.Skipf("open secrets store (set GOG_IT_ACCOUNT to avoid keyring prompts): %v", err)
 	}
 
-	if v, err := store.GetDefaultAccount(); err == nil && strings.TrimSpace(v) != "" {
+	if v, err := store.GetDefaultAccount(config.DefaultClientName); err == nil && strings.TrimSpace(v) != "" {
 		return v
 	}
 
@@ -106,7 +108,11 @@ func TestAuthRefreshTokenSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenDefault: %v", err)
 	}
-	tok, err := store.GetToken(account)
+	client, err := authclient.ResolveClientWithOverride(account, "")
+	if err != nil {
+		t.Fatalf("ResolveClient: %v", err)
+	}
+	tok, err := store.GetToken(client, account)
 	if err != nil {
 		t.Fatalf("GetToken: %v", err)
 	}
@@ -115,7 +121,7 @@ func TestAuthRefreshTokenSmoke(t *testing.T) {
 	if len(scopes) == 0 {
 		scopes = nil
 	}
-	if err := googleauth.CheckRefreshToken(ctx, tok.RefreshToken, scopes, 15*time.Second); err != nil {
+	if err := googleauth.CheckRefreshToken(ctx, client, tok.RefreshToken, scopes, 15*time.Second); err != nil {
 		t.Fatalf("CheckRefreshToken: %v", err)
 	}
 }

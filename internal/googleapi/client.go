@@ -14,6 +14,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 
+	"github.com/steipete/gogcli/internal/authclient"
 	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/googleauth"
 	"github.com/steipete/gogcli/internal/secrets"
@@ -22,17 +23,19 @@ import (
 const defaultHTTPTimeout = 30 * time.Second
 
 var (
-	readClientCredentials = config.ReadClientCredentials
+	readClientCredentials = config.ReadClientCredentialsFor
 	openSecretsStore      = secrets.OpenDefault
 )
 
 func tokenSourceForAccount(ctx context.Context, service googleauth.Service, email string) (oauth2.TokenSource, error) {
-	var creds config.ClientCredentials
+	client, err := authclient.ResolveClient(ctx, email)
+	if err != nil {
+		return nil, fmt.Errorf("resolve client: %w", err)
+	}
 
-	if c, err := readClientCredentials(); err != nil {
+	creds, err := readClientCredentials(client)
+	if err != nil {
 		return nil, fmt.Errorf("read credentials: %w", err)
-	} else {
-		creds = c
 	}
 
 	var requiredScopes []string
@@ -43,10 +46,10 @@ func tokenSourceForAccount(ctx context.Context, service googleauth.Service, emai
 		requiredScopes = scopes
 	}
 
-	return tokenSourceForAccountScopes(ctx, string(service), email, creds.ClientID, creds.ClientSecret, requiredScopes)
+	return tokenSourceForAccountScopes(ctx, string(service), email, client, creds.ClientID, creds.ClientSecret, requiredScopes)
 }
 
-func tokenSourceForAccountScopes(ctx context.Context, serviceLabel string, email string, clientID string, clientSecret string, requiredScopes []string) (oauth2.TokenSource, error) {
+func tokenSourceForAccountScopes(ctx context.Context, serviceLabel string, email string, client string, clientID string, clientSecret string, requiredScopes []string) (oauth2.TokenSource, error) {
 	var store secrets.Store
 
 	if s, err := openSecretsStore(); err != nil {
@@ -57,9 +60,9 @@ func tokenSourceForAccountScopes(ctx context.Context, serviceLabel string, email
 
 	var tok secrets.Token
 
-	if t, err := store.GetToken(email); err != nil {
+	if t, err := store.GetToken(client, email); err != nil {
 		if errors.Is(err, keyring.ErrKeyNotFound) {
-			return nil, &AuthRequiredError{Service: serviceLabel, Email: email, Cause: err}
+			return nil, &AuthRequiredError{Service: serviceLabel, Email: email, Client: client, Cause: err}
 		}
 
 		return nil, fmt.Errorf("get token for %s: %w", email, err)
@@ -102,13 +105,18 @@ func optionsForAccountScopes(ctx context.Context, serviceLabel string, email str
 		slog.Debug("using service account credentials", "email", email, "path", saPath)
 		ts = serviceAccountTS
 	} else {
-		if c, err := readClientCredentials(); err != nil {
+		client, err := authclient.ResolveClient(ctx, email)
+		if err != nil {
+			return nil, fmt.Errorf("resolve client: %w", err)
+		}
+
+		if c, err := readClientCredentials(client); err != nil {
 			return nil, fmt.Errorf("read credentials: %w", err)
 		} else {
 			creds = c
 		}
 
-		if tokenSource, err := tokenSourceForAccountScopes(ctx, serviceLabel, email, creds.ClientID, creds.ClientSecret, scopes); err != nil {
+		if tokenSource, err := tokenSourceForAccountScopes(ctx, serviceLabel, email, client, creds.ClientID, creds.ClientSecret, scopes); err != nil {
 			return nil, fmt.Errorf("token source: %w", err)
 		} else {
 			ts = tokenSource

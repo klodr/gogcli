@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/secrets"
 	"github.com/steipete/gogcli/internal/ui"
@@ -34,7 +35,7 @@ func TestAuthTokensExportImport_JSON(t *testing.T) {
 		Scopes:       []string{"s1"},
 		CreatedAt:    time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
-	if err := store.SetToken(tok.Email, tok); err != nil {
+	if err := store.SetToken(config.DefaultClientName, tok.Email, tok); err != nil {
 		t.Fatalf("SetToken: %v", err)
 	}
 
@@ -78,7 +79,7 @@ func TestAuthTokensExportImport_JSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import: %v", err)
 	}
-	imported, err := newStore.GetToken(tok.Email)
+	imported, err := newStore.GetToken(config.DefaultClientName, tok.Email)
 	if err != nil {
 		t.Fatalf("GetToken: %v", err)
 	}
@@ -97,11 +98,11 @@ func TestAuthList_CheckJSON(t *testing.T) {
 
 	store := newMemStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
-	checkRefreshToken = func(context.Context, string, []string, time.Duration) error {
+	checkRefreshToken = func(context.Context, string, string, []string, time.Duration) error {
 		return nil
 	}
 
-	if err := store.SetToken("a@b.com", secrets.Token{Email: "a@b.com", RefreshToken: "rt"}); err != nil {
+	if err := store.SetToken(config.DefaultClientName, "a@b.com", secrets.Token{Email: "a@b.com", RefreshToken: "rt"}); err != nil {
 		t.Fatalf("SetToken: %v", err)
 	}
 
@@ -146,32 +147,47 @@ func newMemStore() *memStore {
 func (m *memStore) Keys() ([]string, error) {
 	keys := make([]string, 0, len(m.tokens))
 	for k := range m.tokens {
-		keys = append(keys, "token:"+k)
+		parts := strings.SplitN(k, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		keys = append(keys, secrets.TokenKey(parts[0], parts[1]))
 	}
 	return keys, nil
 }
 
-func (m *memStore) SetToken(email string, tok secrets.Token) error {
+func (m *memStore) SetToken(client string, email string, tok secrets.Token) error {
 	if strings.TrimSpace(email) == "" {
 		return errors.New("missing email")
 	}
 	if strings.TrimSpace(tok.RefreshToken) == "" {
 		return errors.New("missing refresh token")
 	}
-	m.tokens[email] = tok
+	if client == "" {
+		client = config.DefaultClientName
+	}
+	tok.Client = client
+	tok.Email = email
+	m.tokens[client+":"+email] = tok
 	return nil
 }
 
-func (m *memStore) GetToken(email string) (secrets.Token, error) {
-	tok, ok := m.tokens[email]
+func (m *memStore) GetToken(client string, email string) (secrets.Token, error) {
+	if client == "" {
+		client = config.DefaultClientName
+	}
+	tok, ok := m.tokens[client+":"+email]
 	if !ok {
 		return secrets.Token{}, errors.New("not found")
 	}
 	return tok, nil
 }
 
-func (m *memStore) DeleteToken(email string) error {
-	delete(m.tokens, email)
+func (m *memStore) DeleteToken(client string, email string) error {
+	if client == "" {
+		client = config.DefaultClientName
+	}
+	delete(m.tokens, client+":"+email)
 	return nil
 }
 
@@ -183,11 +199,11 @@ func (m *memStore) ListTokens() ([]secrets.Token, error) {
 	return out, nil
 }
 
-func (m *memStore) GetDefaultAccount() (string, error) {
+func (m *memStore) GetDefaultAccount(client string) (string, error) {
 	return m.defaultEmail, nil
 }
 
-func (m *memStore) SetDefaultAccount(email string) error {
+func (m *memStore) SetDefaultAccount(client string, email string) error {
 	m.defaultEmail = email
 	return nil
 }

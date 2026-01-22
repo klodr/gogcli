@@ -33,17 +33,21 @@ type fakeStore struct {
 	defaultEmail string
 
 	setTokenEmail    string
+	setTokenClient   string
 	setTokenValue    secrets.Token
 	setTokenErr      error
 	setDefaultCalled string
+	setDefaultClient string
 	setDefaultErr    error
 	deleteCalled     string
+	deleteClient     string
 	deleteErr        error
 	listErr          error
 }
 
 func (s *fakeStore) Keys() ([]string, error) { return nil, nil }
-func (s *fakeStore) SetToken(email string, tok secrets.Token) error {
+func (s *fakeStore) SetToken(client string, email string, tok secrets.Token) error {
+	s.setTokenClient = client
 	s.setTokenEmail = email
 	s.setTokenValue = tok
 
@@ -53,9 +57,11 @@ func (s *fakeStore) SetToken(email string, tok secrets.Token) error {
 
 	return nil
 }
-func (s *fakeStore) GetToken(string) (secrets.Token, error) { return secrets.Token{}, nil }
-func (s *fakeStore) DeleteToken(email string) error {
+func (s *fakeStore) GetToken(string, string) (secrets.Token, error) { return secrets.Token{}, nil }
+func (s *fakeStore) DeleteToken(client string, email string) error {
+	s.deleteClient = client
 	s.deleteCalled = email
+
 	if s.deleteErr != nil {
 		return s.deleteErr
 	}
@@ -70,8 +76,9 @@ func (s *fakeStore) ListTokens() ([]secrets.Token, error) {
 
 	return append([]secrets.Token(nil), s.tokens...), nil
 }
-func (s *fakeStore) GetDefaultAccount() (string, error) { return s.defaultEmail, nil }
-func (s *fakeStore) SetDefaultAccount(email string) error {
+func (s *fakeStore) GetDefaultAccount(string) (string, error) { return s.defaultEmail, nil }
+func (s *fakeStore) SetDefaultAccount(client string, email string) error {
+	s.setDefaultClient = client
 	s.setDefaultCalled = email
 	s.defaultEmail = email
 
@@ -406,7 +413,7 @@ func TestManageServer_HandleAuthStart(t *testing.T) {
 		oauthEndpoint = origEndpoint
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 	randomStateFn = func() (string, error) { return "state123", nil }
@@ -478,7 +485,7 @@ func TestManageServer_HandleAuthStart_CredentialsError(t *testing.T) {
 
 	t.Cleanup(func() { readClientCredentials = origRead })
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{}, errBoom
 	}
 
@@ -501,7 +508,7 @@ func TestManageServer_HandleOAuthCallback_Success(t *testing.T) {
 		oauthEndpoint = origEndpoint
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 
@@ -607,7 +614,7 @@ func TestManageServer_HandleOAuthCallback_FileBackendSkipsKeychain(t *testing.T)
 		return errShouldNotCall
 	}
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 
@@ -664,7 +671,7 @@ func TestManageServer_HandleOAuthCallback_Success_IDTokenEmail(t *testing.T) {
 		oauthEndpoint = origEndpoint
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 
@@ -869,7 +876,7 @@ func TestManageServer_HandleAuthUpgrade(t *testing.T) {
 		oauthEndpoint = origEndpoint
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 	randomStateFn = func() (string, error) { return "state456", nil }
@@ -962,7 +969,7 @@ func TestManageServer_HandleAuthUpgrade_CredentialsError(t *testing.T) {
 
 	t.Cleanup(func() { readClientCredentials = origRead })
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{}, errBoom
 	}
 

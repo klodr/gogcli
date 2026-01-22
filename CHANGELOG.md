@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.9.0 - 2026-01-22
+
+### Highlights
+
+- Auth: multi-org login with per-client OAuth credentials + token isolation. (#96)
 
 ### Added
 
-- Chat: spaces, messages, threads, and DM commands (Workspace only). (#84) — thanks @salmonumbrella.
-- People: profile lookup, directory search, and relations commands. (#84) — thanks @salmonumbrella.
 - Calendar: show event timezone and local times; add --weekday output. (#92) — thanks @salmonumbrella.
 - Gmail: show thread message count in search output. (#99) — thanks @jeanregisser.
 - Gmail: message-level search with optional body decoding. (#88) — thanks @mbelinky.
@@ -13,7 +15,6 @@
 ### Fixed
 
 - Auth: fix Gmail search example in auth success template. (#89) — thanks @rvben.
-- Chat: normalize thread IDs and show a clearer error for consumer accounts. (#84)
 - CLI: remove redundant newlines in text output for calendar, chat, Gmail, and groups commands. (#91) — thanks @salmonumbrella.
 - Gmail: include primary account display name in send From header when available. (#93) — thanks @salmonumbrella.
 - Keyring: persist OAuth tokens across Homebrew upgrades. (#94) — thanks @salmonumbrella.
@@ -21,6 +22,17 @@
 - Contacts: include birthdays in contact get output. (#102) — thanks @salmonumbrella.
 - Calendar: force custom reminders payload to send UseDefault=false. (#100) — thanks @salmonumbrella.
 - Gmail: add read alias + default thread get. (#103) — thanks @salmonumbrella.
+
+## 0.8.0 - 2026-01-19
+
+### Added
+
+- Chat: spaces, messages, threads, and DM commands (Workspace only). (#84) — thanks @salmonumbrella.
+- People: profile lookup, directory search, and relations commands. (#84) — thanks @salmonumbrella.
+
+### Fixed
+
+- Chat: normalize thread IDs and show a clearer error for consumer accounts. (#84)
 
 ## 0.7.0 - 2026-01-17
 

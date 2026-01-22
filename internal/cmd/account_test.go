@@ -17,16 +17,21 @@ type fakeSecretsStore struct {
 }
 
 func (s *fakeSecretsStore) Keys() ([]string, error) { return nil, errors.New("not implemented") }
-func (s *fakeSecretsStore) SetToken(string, secrets.Token) error {
+func (s *fakeSecretsStore) SetToken(string, string, secrets.Token) error {
 	return errors.New("not implemented")
 }
 
-func (s *fakeSecretsStore) GetToken(string) (secrets.Token, error) {
+func (s *fakeSecretsStore) GetToken(string, string) (secrets.Token, error) {
 	return secrets.Token{}, errors.New("not implemented")
 }
-func (s *fakeSecretsStore) DeleteToken(string) error             { return errors.New("not implemented") }
-func (s *fakeSecretsStore) SetDefaultAccount(string) error       { return errors.New("not implemented") }
-func (s *fakeSecretsStore) GetDefaultAccount() (string, error)   { return s.defaultAccount, s.errDefault }
+func (s *fakeSecretsStore) DeleteToken(string, string) error { return errors.New("not implemented") }
+func (s *fakeSecretsStore) SetDefaultAccount(string, string) error {
+	return errors.New("not implemented")
+}
+
+func (s *fakeSecretsStore) GetDefaultAccount(string) (string, error) {
+	return s.defaultAccount, s.errDefault
+}
 func (s *fakeSecretsStore) ListTokens() ([]secrets.Token, error) { return s.tokens, s.errListTokens }
 
 func TestRequireAccount_PrefersFlag(t *testing.T) {
@@ -149,7 +154,7 @@ func TestRequireAccount_UsesSingleStoredToken(t *testing.T) {
 	t.Cleanup(func() { openSecretsStoreForAccount = prev })
 	openSecretsStoreForAccount = func() (secrets.Store, error) {
 		return &fakeSecretsStore{
-			tokens: []secrets.Token{{Email: "one@example.com"}},
+			tokens: []secrets.Token{{Email: "one@example.com", Client: config.DefaultClientName}},
 		}, nil
 	}
 
@@ -170,7 +175,7 @@ func TestRequireAccount_MissingWhenMultipleTokensAndNoDefault(t *testing.T) {
 	t.Cleanup(func() { openSecretsStoreForAccount = prev })
 	openSecretsStoreForAccount = func() (secrets.Store, error) {
 		return &fakeSecretsStore{
-			tokens: []secrets.Token{{Email: "a@example.com"}, {Email: "b@example.com"}},
+			tokens: []secrets.Token{{Email: "a@example.com", Client: config.DefaultClientName}, {Email: "b@example.com", Client: config.DefaultClientName}},
 		}, nil
 	}
 

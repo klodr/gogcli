@@ -19,6 +19,7 @@ import (
 
 	"golang.org/x/oauth2"
 
+	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/secrets"
 )
 
@@ -34,11 +35,13 @@ type ManageServerOptions struct {
 	Timeout      time.Duration
 	Services     []Service
 	ForceConsent bool
+	Client       string
 }
 
 // ManageServer handles the accounts management UI
 type ManageServer struct {
 	opts       ManageServerOptions
+	client     string
 	csrfToken  string
 	listener   net.Listener
 	server     *http.Server
@@ -80,6 +83,12 @@ func StartManageServer(ctx context.Context, opts ManageServerOptions) error {
 		opts.Timeout = 10 * time.Minute
 	}
 
+	client, err := config.NormalizeClientNameOrDefault(opts.Client)
+	if err != nil {
+		return fmt.Errorf("resolve client: %w", err)
+	}
+	opts.Client = client
+
 	store, err := openDefaultStore()
 	if err != nil {
 		return fmt.Errorf("failed to open secrets store: %w", err)
@@ -97,6 +106,7 @@ func StartManageServer(ctx context.Context, opts ManageServerOptions) error {
 
 	ms := &ManageServer{
 		opts:       opts,
+		client:     opts.Client,
 		csrfToken:  csrfToken,
 		listener:   ln,
 		store:      store,
@@ -187,10 +197,17 @@ func (ms *ManageServer) handleListAccounts(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	defaultEmail, _ := ms.store.GetDefaultAccount()
+	filtered := make([]secrets.Token, 0, len(tokens))
+	for _, tok := range tokens {
+		if tok.Client == ms.client {
+			filtered = append(filtered, tok)
+		}
+	}
 
-	accounts := make([]AccountInfo, 0, len(tokens))
-	for i, t := range tokens {
+	defaultEmail, _ := ms.store.GetDefaultAccount(ms.client)
+
+	accounts := make([]AccountInfo, 0, len(filtered))
+	for i, t := range filtered {
 		isDefault := i == 0 // First account is default if none set
 		if defaultEmail != "" {
 			isDefault = t.Email == defaultEmail
@@ -207,7 +224,7 @@ func (ms *ManageServer) handleListAccounts(w http.ResponseWriter, r *http.Reques
 }
 
 func (ms *ManageServer) handleAuthStart(w http.ResponseWriter, r *http.Request) {
-	creds, err := readClientCredentials()
+	creds, err := readClientCredentials(ms.client)
 	if err != nil {
 		http.Error(w, "OAuth credentials not configured. Run: gog auth credentials <file>", http.StatusInternalServerError)
 		return
@@ -251,7 +268,7 @@ func (ms *ManageServer) handleAuthUpgrade(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	creds, err := readClientCredentials()
+	creds, err := readClientCredentials(ms.client)
 	if err != nil {
 		http.Error(w, "OAuth credentials not configured. Run: gog auth credentials <file>", http.StatusInternalServerError)
 		return
@@ -320,7 +337,7 @@ func (ms *ManageServer) handleOAuthCallback(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	creds, err := readClientCredentials()
+	creds, err := readClientCredentials(ms.client)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		renderErrorPage(w, "Failed to read credentials")
@@ -405,7 +422,7 @@ func (ms *ManageServer) handleOAuthCallback(w http.ResponseWriter, r *http.Reque
 		serviceNames = append(serviceNames, string(svc))
 	}
 
-	if err := ms.store.SetToken(email, secrets.Token{
+	if err := ms.store.SetToken(ms.client, email, secrets.Token{
 		Email:        email,
 		Services:     serviceNames,
 		Scopes:       scopes,
@@ -442,7 +459,7 @@ func (ms *ManageServer) handleSetDefault(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := ms.store.SetDefaultAccount(req.Email); err != nil {
+	if err := ms.store.SetDefaultAccount(ms.client, req.Email); err != nil {
 		writeJSONError(w, "Failed to set default account", http.StatusInternalServerError)
 		return
 	}
@@ -470,7 +487,7 @@ func (ms *ManageServer) handleRemoveAccount(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := ms.store.DeleteToken(req.Email); err != nil {
+	if err := ms.store.DeleteToken(ms.client, req.Email); err != nil {
 		writeJSONError(w, "Failed to remove account", http.StatusInternalServerError)
 		return
 	}

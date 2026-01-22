@@ -13,13 +13,13 @@ type tasksStubStore struct {
 	err error
 }
 
-func (s *tasksStubStore) Keys() ([]string, error)              { return nil, nil }
-func (s *tasksStubStore) SetToken(string, secrets.Token) error { return nil }
-func (s *tasksStubStore) DeleteToken(string) error             { return nil }
-func (s *tasksStubStore) ListTokens() ([]secrets.Token, error) { return nil, nil }
-func (s *tasksStubStore) GetDefaultAccount() (string, error)   { return "", nil }
-func (s *tasksStubStore) SetDefaultAccount(string) error       { return nil }
-func (s *tasksStubStore) GetToken(string) (secrets.Token, error) {
+func (s *tasksStubStore) Keys() ([]string, error)                      { return nil, nil }
+func (s *tasksStubStore) SetToken(string, string, secrets.Token) error { return nil }
+func (s *tasksStubStore) DeleteToken(string, string) error             { return nil }
+func (s *tasksStubStore) ListTokens() ([]secrets.Token, error)         { return nil, nil }
+func (s *tasksStubStore) GetDefaultAccount(string) (string, error)     { return "", nil }
+func (s *tasksStubStore) SetDefaultAccount(string, string) error       { return nil }
+func (s *tasksStubStore) GetToken(string, string) (secrets.Token, error) {
 	if s.err != nil {
 		return secrets.Token{}, s.err
 	}
@@ -36,7 +36,7 @@ func TestNewTasks(t *testing.T) {
 		openSecretsStore = origOpen
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 	openSecretsStore = func() (secrets.Store, error) {

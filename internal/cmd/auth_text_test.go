@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/secrets"
 )
 
@@ -19,7 +20,7 @@ func TestAuthTextOutputs(t *testing.T) {
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
 
-	if err := store.SetToken("a@b.com", secrets.Token{
+	if err := store.SetToken(config.DefaultClientName, "a@b.com", secrets.Token{
 		Services:     []string{"gmail"},
 		RefreshToken: "rt",
 		CreatedAt:    time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC),
@@ -45,7 +46,7 @@ func TestAuthTextOutputs(t *testing.T) {
 			}
 		})
 	})
-	if !strings.Contains(keysOut, "token:a@b.com") {
+	if !strings.Contains(keysOut, "token:default:a@b.com") {
 		t.Fatalf("unexpected keys output: %q", keysOut)
 	}
 
@@ -61,7 +62,7 @@ func TestAuthTextOutputs(t *testing.T) {
 	}
 
 	// Re-add and remove via auth remove.
-	if err := store.SetToken("a@b.com", secrets.Token{RefreshToken: "rt"}); err != nil {
+	if err := store.SetToken(config.DefaultClientName, "a@b.com", secrets.Token{RefreshToken: "rt"}); err != nil {
 		t.Fatalf("SetToken: %v", err)
 	}
 	rmOut := captureStdout(t, func() {
@@ -117,15 +118,15 @@ func TestAuthList_Check_Text(t *testing.T) {
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
 
-	checkRefreshToken = func(_ context.Context, refreshToken string, _ []string, _ time.Duration) error {
+	checkRefreshToken = func(_ context.Context, _ string, refreshToken string, _ []string, _ time.Duration) error {
 		if refreshToken == "bad" {
 			return errors.New("invalid_grant")
 		}
 		return nil
 	}
 
-	_ = store.SetToken("a@b.com", secrets.Token{RefreshToken: "good"})
-	_ = store.SetToken("b@b.com", secrets.Token{RefreshToken: "bad"})
+	_ = store.SetToken(config.DefaultClientName, "a@b.com", secrets.Token{RefreshToken: "good"})
+	_ = store.SetToken(config.DefaultClientName, "b@b.com", secrets.Token{RefreshToken: "bad"})
 
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
@@ -154,7 +155,7 @@ func TestAuthTokensExportImport_Text(t *testing.T) {
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
 
-	if err := store.SetToken("a@b.com", secrets.Token{
+	if err := store.SetToken(config.DefaultClientName, "a@b.com", secrets.Token{
 		RefreshToken: "rt",
 	}); err != nil {
 		t.Fatalf("SetToken: %v", err)
@@ -172,7 +173,7 @@ func TestAuthTokensExportImport_Text(t *testing.T) {
 		t.Fatalf("unexpected export output: %q", out)
 	}
 
-	if err := store.DeleteToken("a@b.com"); err != nil {
+	if err := store.DeleteToken(config.DefaultClientName, "a@b.com"); err != nil {
 		t.Fatalf("DeleteToken: %v", err)
 	}
 

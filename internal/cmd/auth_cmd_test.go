@@ -18,11 +18,12 @@ import (
 )
 
 type memSecretsStore struct {
-	tokens map[string]secrets.Token
+	tokens   map[string]secrets.Token
+	defaults map[string]string
 }
 
 func newMemSecretsStore() *memSecretsStore {
-	return &memSecretsStore{tokens: make(map[string]secrets.Token)}
+	return &memSecretsStore{tokens: make(map[string]secrets.Token), defaults: make(map[string]string)}
 }
 
 func normalizeEmailTest(s string) string {
@@ -31,14 +32,18 @@ func normalizeEmailTest(s string) string {
 
 func (s *memSecretsStore) Keys() ([]string, error) {
 	keys := make([]string, 0, len(s.tokens))
-	for email := range s.tokens {
-		keys = append(keys, "token:"+email)
+	for key := range s.tokens {
+		parts := strings.SplitN(key, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		keys = append(keys, secrets.TokenKey(parts[0], parts[1]))
 	}
 	sort.Strings(keys)
 	return keys, nil
 }
 
-func (s *memSecretsStore) SetToken(email string, tok secrets.Token) error {
+func (s *memSecretsStore) SetToken(client string, email string, tok secrets.Token) error {
 	email = normalizeEmailTest(email)
 	if email == "" {
 		return errors.New("missing email")
@@ -46,31 +51,41 @@ func (s *memSecretsStore) SetToken(email string, tok secrets.Token) error {
 	if strings.TrimSpace(tok.RefreshToken) == "" {
 		return errors.New("missing refresh token")
 	}
+	if client == "" {
+		client = config.DefaultClientName
+	}
 	tok.Email = email
-	s.tokens[email] = tok
+	tok.Client = client
+	s.tokens[client+":"+email] = tok
 	return nil
 }
 
-func (s *memSecretsStore) GetToken(email string) (secrets.Token, error) {
+func (s *memSecretsStore) GetToken(client string, email string) (secrets.Token, error) {
 	email = normalizeEmailTest(email)
 	if email == "" {
 		return secrets.Token{}, errors.New("missing email")
 	}
-	if tok, ok := s.tokens[email]; ok {
+	if client == "" {
+		client = config.DefaultClientName
+	}
+	if tok, ok := s.tokens[client+":"+email]; ok {
 		return tok, nil
 	}
 	return secrets.Token{}, keyring.ErrKeyNotFound
 }
 
-func (s *memSecretsStore) DeleteToken(email string) error {
+func (s *memSecretsStore) DeleteToken(client string, email string) error {
 	email = normalizeEmailTest(email)
 	if email == "" {
 		return errors.New("missing email")
 	}
-	if _, ok := s.tokens[email]; !ok {
+	if client == "" {
+		client = config.DefaultClientName
+	}
+	if _, ok := s.tokens[client+":"+email]; !ok {
 		return keyring.ErrKeyNotFound
 	}
-	delete(s.tokens, email)
+	delete(s.tokens, client+":"+email)
 	return nil
 }
 
@@ -82,25 +97,20 @@ func (s *memSecretsStore) ListTokens() ([]secrets.Token, error) {
 	return out, nil
 }
 
-func (s *memSecretsStore) GetDefaultAccount() (string, error) {
-	return "", nil
+func (s *memSecretsStore) GetDefaultAccount(client string) (string, error) {
+	if client == "" {
+		client = config.DefaultClientName
+	}
+	return s.defaults[client], nil
 }
 
-func (s *memSecretsStore) SetDefaultAccount(email string) error {
+func (s *memSecretsStore) SetDefaultAccount(client string, email string) error {
+	if client == "" {
+		client = config.DefaultClientName
+	}
+	s.defaults[client] = email
 	return nil
 }
-
-type listKeysStore struct {
-	keys []string
-}
-
-func (s *listKeysStore) Keys() ([]string, error)                { return s.keys, nil }
-func (s *listKeysStore) SetToken(string, secrets.Token) error   { return nil }
-func (s *listKeysStore) GetToken(string) (secrets.Token, error) { return secrets.Token{}, nil }
-func (s *listKeysStore) DeleteToken(string) error               { return nil }
-func (s *listKeysStore) ListTokens() ([]secrets.Token, error)   { return nil, nil }
-func (s *listKeysStore) GetDefaultAccount() (string, error)     { return "", nil }
-func (s *listKeysStore) SetDefaultAccount(string) error         { return nil }
 
 func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
 	origOpen := openSecretsStore
@@ -113,7 +123,7 @@ func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
 	ensureKeychainAccess = func() error { return nil }
 	store := newMemSecretsStore()
 	createdAt := time.Date(2025, 12, 12, 0, 0, 0, 0, time.UTC)
-	if err := store.SetToken("A@B.COM", secrets.Token{
+	if err := store.SetToken(config.DefaultClientName, "A@B.COM", secrets.Token{
 		Services:     []string{"gmail"},
 		Scopes:       []string{"s1"},
 		CreatedAt:    createdAt,
@@ -154,7 +164,7 @@ func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
 	}
 
 	// Clear token, then import it back.
-	if err := store.DeleteToken("a@b.com"); err != nil {
+	if err := store.DeleteToken(config.DefaultClientName, "a@b.com"); err != nil {
 		t.Fatalf("DeleteToken: %v", err)
 	}
 
@@ -175,7 +185,7 @@ func TestAuthTokens_ExportImportRoundtrip_JSON(t *testing.T) {
 	if !importResp.Imported || importResp.Email != "a@b.com" {
 		t.Fatalf("unexpected import resp: %#v", importResp)
 	}
-	if tok, err := store.GetToken("a@b.com"); err != nil || tok.RefreshToken != "rt" {
+	if tok, err := store.GetToken(config.DefaultClientName, "a@b.com"); err != nil || tok.RefreshToken != "rt" {
 		t.Fatalf("expected token restored, got tok=%#v err=%v", tok, err)
 	}
 }
@@ -184,9 +194,10 @@ func TestAuthTokensList_FiltersNonTokenKeys(t *testing.T) {
 	origOpen := openSecretsStore
 	t.Cleanup(func() { openSecretsStore = origOpen })
 
-	openSecretsStore = func() (secrets.Store, error) {
-		return &listKeysStore{keys: []string{"backup", "token:a@b.com", "default_account"}}, nil
-	}
+	store := newMemSecretsStore()
+	_ = store.SetToken(config.DefaultClientName, "a@b.com", secrets.Token{RefreshToken: "rt"})
+	_ = store.SetToken("org", "c@d.com", secrets.Token{RefreshToken: "rt2"})
+	openSecretsStore = func() (secrets.Store, error) { return store, nil }
 
 	out := captureStdout(t, func() {
 		_ = captureStderr(t, func() {
@@ -196,7 +207,7 @@ func TestAuthTokensList_FiltersNonTokenKeys(t *testing.T) {
 		})
 	})
 
-	if strings.TrimSpace(out) != "token:a@b.com" {
+	if !strings.Contains(out, "token:default:a@b.com") || !strings.Contains(out, "token:org:c@d.com") {
 		t.Fatalf("unexpected output: %q", out)
 	}
 }
@@ -331,7 +342,7 @@ func TestAuthTokensImport_FileBackendSkipsKeychain(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 
-	if _, err := store.GetToken("a@b.com"); err != nil {
+	if _, err := store.GetToken(config.DefaultClientName, "a@b.com"); err != nil {
 		t.Fatalf("expected token stored: %v", err)
 	}
 }
@@ -347,15 +358,15 @@ func TestAuthListRemoveTokensListDelete_JSON(t *testing.T) {
 	store := newMemSecretsStore()
 	openSecretsStore = func() (secrets.Store, error) { return store, nil }
 
-	checkRefreshToken = func(_ context.Context, refreshToken string, _ []string, _ time.Duration) error {
+	checkRefreshToken = func(_ context.Context, _ string, refreshToken string, _ []string, _ time.Duration) error {
 		if refreshToken == "rt2" {
 			return errors.New("invalid_grant")
 		}
 		return nil
 	}
 
-	_ = store.SetToken("b@b.com", secrets.Token{RefreshToken: "rt2"})
-	_ = store.SetToken("a@b.com", secrets.Token{RefreshToken: "rt1"})
+	_ = store.SetToken(config.DefaultClientName, "b@b.com", secrets.Token{RefreshToken: "rt2"})
+	_ = store.SetToken(config.DefaultClientName, "a@b.com", secrets.Token{RefreshToken: "rt1"})
 
 	listOut := captureStdout(t, func() {
 		_ = captureStderr(t, func() {

@@ -22,19 +22,22 @@ var (
 )
 
 type stubStore struct {
-	lastEmail string
-	tok       secrets.Token
-	err       error
+	lastClient string
+	lastEmail  string
+	tok        secrets.Token
+	err        error
 }
 
-func (s *stubStore) Keys() ([]string, error)              { return nil, nil }
-func (s *stubStore) SetToken(string, secrets.Token) error { return nil }
-func (s *stubStore) DeleteToken(string) error             { return nil }
-func (s *stubStore) ListTokens() ([]secrets.Token, error) { return nil, nil }
-func (s *stubStore) GetDefaultAccount() (string, error)   { return "", nil }
-func (s *stubStore) SetDefaultAccount(string) error       { return nil }
-func (s *stubStore) GetToken(email string) (secrets.Token, error) {
+func (s *stubStore) Keys() ([]string, error)                      { return nil, nil }
+func (s *stubStore) SetToken(string, string, secrets.Token) error { return nil }
+func (s *stubStore) DeleteToken(string, string) error             { return nil }
+func (s *stubStore) ListTokens() ([]secrets.Token, error)         { return nil, nil }
+func (s *stubStore) GetDefaultAccount(string) (string, error)     { return "", nil }
+func (s *stubStore) SetDefaultAccount(string, string) error       { return nil }
+func (s *stubStore) GetToken(client string, email string) (secrets.Token, error) {
+	s.lastClient = client
 	s.lastEmail = email
+
 	if s.err != nil {
 		return secrets.Token{}, s.err
 	}
@@ -51,7 +54,7 @@ func TestTokenSourceForAccountScopes_StoreErrors(t *testing.T) {
 		return nil, errBoom
 	}
 
-	_, err := tokenSourceForAccountScopes(context.Background(), "svc", "a@b.com", "id", "secret", []string{"s1"})
+	_, err := tokenSourceForAccountScopes(context.Background(), "svc", "a@b.com", "default", "id", "secret", []string{"s1"})
 	if err == nil || !errors.Is(err, errBoom) {
 		t.Fatalf("expected boom, got: %v", err)
 	}
@@ -66,7 +69,7 @@ func TestTokenSourceForAccountScopes_KeyNotFound(t *testing.T) {
 		return &stubStore{err: keyring.ErrKeyNotFound}, nil
 	}
 
-	_, err := tokenSourceForAccountScopes(context.Background(), "gmail", "a@b.com", "id", "secret", []string{"s1"})
+	_, err := tokenSourceForAccountScopes(context.Background(), "gmail", "a@b.com", "default", "id", "secret", []string{"s1"})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -90,7 +93,7 @@ func TestTokenSourceForAccountScopes_OtherGetError(t *testing.T) {
 		return &stubStore{err: errNope}, nil
 	}
 
-	_, err := tokenSourceForAccountScopes(context.Background(), "svc", "a@b.com", "id", "secret", []string{"s1"})
+	_, err := tokenSourceForAccountScopes(context.Background(), "svc", "a@b.com", "default", "id", "secret", []string{"s1"})
 	if err == nil || !errors.Is(err, errNope) {
 		t.Fatalf("expected nope, got: %v", err)
 	}
@@ -104,7 +107,7 @@ func TestTokenSourceForAccountScopes_HappyPath(t *testing.T) {
 	s := &stubStore{tok: secrets.Token{Email: "a@b.com", RefreshToken: "rt"}}
 	openSecretsStore = func() (secrets.Store, error) { return s, nil }
 
-	ts, err := tokenSourceForAccountScopes(context.Background(), "svc", "A@B.COM", "id", "secret", []string{"s1"})
+	ts, err := tokenSourceForAccountScopes(context.Background(), "svc", "A@B.COM", "default", "id", "secret", []string{"s1"})
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -123,7 +126,7 @@ func TestTokenSourceForAccount_ReadCredsError(t *testing.T) {
 
 	t.Cleanup(func() { readClientCredentials = origRead })
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{}, errMissingCreds
 	}
 
@@ -142,7 +145,7 @@ func TestOptionsForAccountScopes_HappyPath(t *testing.T) {
 		openSecretsStore = origOpen
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 	openSecretsStore = func() (secrets.Store, error) {
@@ -168,7 +171,7 @@ func TestOptionsForAccount_HappyPath(t *testing.T) {
 		openSecretsStore = origOpen
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		return config.ClientCredentials{ClientID: "id", ClientSecret: "secret"}, nil
 	}
 	openSecretsStore = func() (secrets.Store, error) {
@@ -213,7 +216,7 @@ func TestOptionsForAccountScopes_ServiceAccountPreferred(t *testing.T) {
 		newServiceAccountTokenSource = origSA
 	})
 
-	readClientCredentials = func() (config.ClientCredentials, error) {
+	readClientCredentials = func(string) (config.ClientCredentials, error) {
 		t.Fatalf("readClientCredentials should not be called")
 		return config.ClientCredentials{}, nil
 	}
