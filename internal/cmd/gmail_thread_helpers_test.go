@@ -120,6 +120,72 @@ func TestFindPartBodyHTML(t *testing.T) {
 	}
 }
 
+func TestBestBodyForDisplay_DetectsHTMLInPlainPart(t *testing.T) {
+	html := base64.RawURLEncoding.EncodeToString([]byte("<html><body>hi</body></html>"))
+	part := &gmail.MessagePart{
+		Parts: []*gmail.MessagePart{
+			{
+				MimeType: "text/plain",
+				Body:     &gmail.MessagePartBody{Data: html},
+			},
+		},
+	}
+	body, isHTML := bestBodyForDisplay(part)
+	if body == "" || !isHTML {
+		t.Fatalf("expected HTML detection, got body=%q html=%v", body, isHTML)
+	}
+}
+
+func TestFindPartBody_DecodesQuotedPrintable(t *testing.T) {
+	qp := "Precio =E2=82=AC99.99"
+	encoded := base64.RawURLEncoding.EncodeToString([]byte(qp))
+	part := &gmail.MessagePart{
+		MimeType: "text/plain",
+		Headers: []*gmail.MessagePartHeader{
+			{Name: "Content-Transfer-Encoding", Value: "quoted-printable"},
+			{Name: "Content-Type", Value: "text/plain; charset=utf-8"},
+		},
+		Body: &gmail.MessagePartBody{Data: encoded},
+	}
+	got := findPartBody(part, "text/plain")
+	if got != "Precio €99.99" {
+		t.Fatalf("unexpected decoded body: %q", got)
+	}
+}
+
+func TestFindPartBody_DecodesBase64Transfer(t *testing.T) {
+	inner := base64.StdEncoding.EncodeToString([]byte("plain body"))
+	encoded := base64.RawURLEncoding.EncodeToString([]byte(inner))
+	part := &gmail.MessagePart{
+		MimeType: "text/plain",
+		Headers: []*gmail.MessagePartHeader{
+			{Name: "Content-Transfer-Encoding", Value: "base64"},
+			{Name: "Content-Type", Value: "text/plain; charset=utf-8"},
+		},
+		Body: &gmail.MessagePartBody{Data: encoded},
+	}
+	got := findPartBody(part, "text/plain")
+	if got != "plain body" {
+		t.Fatalf("unexpected decoded body: %q", got)
+	}
+}
+
+func TestDecodeTransferEncoding_Base64Whitespace(t *testing.T) {
+	encoded := []byte("cGxhaW4gYm9keQ==\n")
+	got := decodeTransferEncoding(encoded, "base64")
+	if string(got) != "plain body" {
+		t.Fatalf("unexpected decoded body: %q", got)
+	}
+}
+
+func TestDecodeBodyCharset_ISO88591(t *testing.T) {
+	input := []byte{0x63, 0x61, 0x66, 0xe9} // "café" in ISO-8859-1
+	got := decodeBodyCharset(input, "text/plain; charset=iso-8859-1")
+	if string(got) != "café" {
+		t.Fatalf("unexpected decoded charset: %q", string(got))
+	}
+}
+
 func TestMimeTypeMatches(t *testing.T) {
 	if !mimeTypeMatches("Text/Plain; charset=UTF-8", "text/plain") {
 		t.Fatalf("expected mime match")
