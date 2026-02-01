@@ -122,6 +122,10 @@ func TestDriveSearchCmd_NoResultsAndEmptyQuery(t *testing.T) {
 			http.Error(w, errMsg, http.StatusBadRequest)
 			return
 		}
+		if errMsg := driveAllDrivesQueryError(r); errMsg != "" {
+			http.Error(w, errMsg, http.StatusBadRequest)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"files": []map[string]any{},

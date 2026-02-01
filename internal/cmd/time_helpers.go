@@ -131,23 +131,22 @@ func ResolveTimeRangeWithDefaults(ctx context.Context, svc *calendar.Service, fl
 				from = now.Add(defaults.FromOffset)
 			}
 
-<<<<<<< HEAD
-			switch {
-			case flags.To != "":
-				toIsDayExpr := isDayExpr(flags.To, now, loc)
-				to, err = parseTimeExpr(flags.To, now, loc)
-				if err != nil {
-					return nil, fmt.Errorf("invalid --to: %w", err)
-				}
-				if toIsDayExpr {
-					to = endOfDay(to)
-				}
-		case flags.From != "" && defaults.ToFromOffset != 0:
-			to = from.Add(defaults.ToFromOffset)
-		default:
-			to = now.Add(defaults.ToOffset)
+	switch {
+	case flags.To != "":
+		toIsDayExpr := isDayExpr(flags.To, now, loc)
+		to, err = parseTimeExpr(flags.To, now, loc)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --to: %w", err)
 		}
+		if toIsDayExpr {
+			to = endOfDay(to)
+		}
+	case flags.From != "" && defaults.ToFromOffset != 0:
+		to = from.Add(defaults.ToFromOffset)
+	default:
+		to = now.Add(defaults.ToOffset)
 	}
+}
 
 	return &TimeRange{
 		From:     from,
@@ -156,7 +155,6 @@ func ResolveTimeRangeWithDefaults(ctx context.Context, svc *calendar.Service, fl
 	}, nil
 }
 
-<<<<<<< HEAD
 func isDayExpr(expr string, now time.Time, loc *time.Location) bool {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
