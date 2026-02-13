@@ -227,6 +227,21 @@ func fetchLabelNameToID(svc *gmail.Service) (map[string]string, error) {
 	return m, nil
 }
 
+func fetchLabelNameOnlyToID(svc *gmail.Service) (map[string]string, error) {
+	resp, err := svc.Users.Labels.List("me").Do()
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]string, len(resp.Labels))
+	for _, l := range resp.Labels {
+		if l.Id == "" || l.Name == "" {
+			continue
+		}
+		m[strings.ToLower(l.Name)] = l.Id
+	}
+	return m, nil
+}
+
 type GmailLabelsDeleteCmd struct {
 	Label string `arg:"" name:"labelIdOrName" help:"Label ID or name"`
 }
@@ -248,11 +263,14 @@ func (c *GmailLabelsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error 
 		return usage("empty label")
 	}
 
-	// For destructive operations, try exact ID match first before name lookup
+	// For destructive operations, try exact ID match first before name lookup.
 	label, err := svc.Users.Labels.Get("me", raw).Context(ctx).Do()
 	if err != nil {
-		// Not a valid ID, try resolving as name
-		idMap, mapErr := fetchLabelNameToID(svc)
+		if !isNotFoundAPIError(err) {
+			return err
+		}
+		// Exact ID not found; resolve by label name only.
+		idMap, mapErr := fetchLabelNameOnlyToID(svc)
 		if mapErr != nil {
 			return mapErr
 		}
