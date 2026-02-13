@@ -790,6 +790,9 @@ gog drive copy <fileId> "Copy Name"
 
 # Upload and download
 gog drive upload ./path/to/file --parent <folderId>
+gog drive upload ./report.docx --convert
+gog drive upload ./chart.png --convert-to sheet
+gog drive upload ./report.docx --convert --name report.docx
 gog drive download <fileId> --out ./downloaded.bin
 gog drive download <fileId> --format pdf --out ./exported.pdf
 gog drive download <fileId> --format docx --out ./doc.docx
