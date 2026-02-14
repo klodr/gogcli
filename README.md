@@ -575,6 +575,8 @@ gog gmail send --to a@b.com --subject "Hi" --body "Plain fallback"
 gog gmail send --to a@b.com --subject "Hi" --body-file ./message.txt
 gog gmail send --to a@b.com --subject "Hi" --body-file -   # Read body from stdin
 gog gmail send --to a@b.com --subject "Hi" --body "Plain fallback" --body-html "<p>Hello</p>"
+# Reply + include quoted original message (auto-generates HTML quote unless you pass --body-html)
+gog gmail send --reply-to-message-id <messageId> --quote --to a@b.com --subject "Re: Hi" --body "My reply"
 gog gmail drafts list
 gog gmail drafts create --subject "Draft" --body "Body"
 gog gmail drafts create --to a@b.com --subject "Draft" --body "Body"
@@ -648,7 +650,7 @@ gog gmail track status
 
 Docs: `docs/email-tracking.md` (setup/deploy) + `docs/email-tracking-worker.md` (internals).
 
-**Notes:** `--track` requires exactly 1 recipient (no cc/bcc) and an HTML body (`--body-html`). Use `--track-split` to send per-recipient messages with individual tracking ids. The tracking worker stores IP/user-agent + coarse geo by default.
+**Notes:** `--track` requires exactly 1 recipient (no cc/bcc) and an HTML body (`--body-html` or `--quote`). Use `--track-split` to send per-recipient messages with individual tracking ids. The tracking worker stores IP/user-agent + coarse geo by default.
 
 ### Calendar
 
