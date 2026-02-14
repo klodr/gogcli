@@ -3,7 +3,7 @@
 ![GitHub Repo Banner](https://ghrb.waren.build/banner?header=gogcli%F0%9F%A7%AD&subheader=Google+in+your+terminal&bg=f3f4f6&color=1f2937&support=true)
 <!-- Created with GitHub Repo Banner by Waren Gonzaga: https://ghrb.waren.build -->
 
-Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Slides, Sheets, Contacts, Tasks, People, Groups (Workspace), and Keep (Workspace-only). JSON-first output, multiple accounts, and least-privilege auth built in.
+Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Slides, Sheets, Forms, Apps Script, Contacts, Tasks, People, Groups (Workspace), and Keep (Workspace-only). JSON-first output, multiple accounts, and least-privilege auth built in.
 
 ## Features
 
@@ -16,6 +16,8 @@ Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Sli
 - **Contacts** - search/create/update contacts, access Workspace directory/other contacts
 - **Tasks** - manage tasklists and tasks: get/create/add/update/done/undo/delete/clear, repeat schedules
 - **Sheets** - read/write/update spreadsheets, format cells, create new sheets (and export via Drive)
+- **Forms** - create/get forms and inspect responses
+- **Apps Script** - create/get projects, inspect content, and run functions
 - **Docs/Slides** - export to PDF/DOCX/PPTX via Drive (plus create/copy, docs-to-text)
 - **People** - access profile information
 - **Keep (Workspace only)** - list/get/search notes and download attachments (service account + domain-wide delegation)
@@ -76,6 +78,8 @@ Before adding an account, create OAuth2 credentials from Google Cloud Console:
    - People API (Contacts): https://console.cloud.google.com/apis/api/people.googleapis.com
    - Google Tasks API: https://console.cloud.google.com/apis/api/tasks.googleapis.com
    - Google Sheets API: https://console.cloud.google.com/apis/api/sheets.googleapis.com
+   - Google Forms API: https://console.cloud.google.com/apis/api/forms.googleapis.com
+   - Apps Script API: https://console.cloud.google.com/apis/api/script.googleapis.com
    - Cloud Identity API (Groups): https://console.cloud.google.com/apis/api/cloudidentity.googleapis.com
 3. Configure OAuth consent screen: https://console.cloud.google.com/auth/branding
 4. If your app is in "Testing", add test users: https://console.cloud.google.com/auth/audience
@@ -337,10 +341,13 @@ Service scope matrix (auto-generated; run `go run scripts/gen-auth-services-md.g
 | classroom | yes | Classroom API | `https://www.googleapis.com/auth/classroom.courses`<br>`https://www.googleapis.com/auth/classroom.rosters`<br>`https://www.googleapis.com/auth/classroom.coursework.students`<br>`https://www.googleapis.com/auth/classroom.coursework.me`<br>`https://www.googleapis.com/auth/classroom.courseworkmaterials`<br>`https://www.googleapis.com/auth/classroom.announcements`<br>`https://www.googleapis.com/auth/classroom.topics`<br>`https://www.googleapis.com/auth/classroom.guardianlinks.students`<br>`https://www.googleapis.com/auth/classroom.profile.emails`<br>`https://www.googleapis.com/auth/classroom.profile.photos` |  |
 | drive | yes | Drive API | `https://www.googleapis.com/auth/drive` |  |
 | docs | yes | Docs API, Drive API | `https://www.googleapis.com/auth/drive`<br>`https://www.googleapis.com/auth/documents` | Export/copy/create via Drive |
+| slides | yes | Slides API, Drive API | `https://www.googleapis.com/auth/drive`<br>`https://www.googleapis.com/auth/presentations` | Create/edit presentations |
 | contacts | yes | People API | `https://www.googleapis.com/auth/contacts`<br>`https://www.googleapis.com/auth/contacts.other.readonly`<br>`https://www.googleapis.com/auth/directory.readonly` | Contacts + other contacts + directory |
 | tasks | yes | Tasks API | `https://www.googleapis.com/auth/tasks` |  |
 | sheets | yes | Sheets API, Drive API | `https://www.googleapis.com/auth/drive`<br>`https://www.googleapis.com/auth/spreadsheets` | Export via Drive |
 | people | yes | People API | `profile` | OIDC profile scope |
+| forms | yes | Forms API | `https://www.googleapis.com/auth/forms.body`<br>`https://www.googleapis.com/auth/forms.responses.readonly` |  |
+| appscript | yes | Apps Script API | `https://www.googleapis.com/auth/script.projects`<br>`https://www.googleapis.com/auth/script.deployments`<br>`https://www.googleapis.com/auth/script.processes` |  |
 | groups | no | Cloud Identity API | `https://www.googleapis.com/auth/cloud-identity.groups.readonly` | Workspace only |
 | keep | no | Keep API | `https://www.googleapis.com/auth/keep.readonly` | Workspace only; service account (domain-wide delegation) |
 <!-- auth-services:end -->
@@ -920,6 +927,32 @@ gog sheets format <spreadsheetId> 'Sheet1!A1:B2' --format-json '{"textFormat":{"
 
 # Create
 gog sheets create "My New Spreadsheet" --sheets "Sheet1,Sheet2"
+```
+
+### Forms
+
+```bash
+# Forms
+gog forms get <formId>
+gog forms create --title "Weekly Check-in" --description "Friday async update"
+
+# Responses
+gog forms responses list <formId> --max 20
+gog forms responses get <formId> <responseId>
+```
+
+### Apps Script
+
+```bash
+# Projects
+gog appscript get <scriptId>
+gog appscript content <scriptId>
+gog appscript create --title "Automation Helpers"
+gog appscript create --title "Bound Script" --parent-id <driveFileId>
+
+# Execute functions
+gog appscript run <scriptId> myFunction --params '["arg1", 123, true]'
+gog appscript run <scriptId> myFunction --dev-mode
 ```
 
 ### People
