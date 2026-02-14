@@ -43,7 +43,7 @@ func TestParseService_Invalid(t *testing.T) {
 }
 
 func TestExtractCodeAndState(t *testing.T) {
-	code, state, err := extractCodeAndState("http://localhost:1/?code=abc&state=xyz")
+	code, state, err := extractCodeAndState("http://127.0.0.1:55555/oauth2/callback?code=abc&state=xyz")
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestExtractCodeAndState_Errors(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 
-	if _, _, err := extractCodeAndState("http://localhost:1/?state=xyz"); err == nil {
+	if _, _, err := extractCodeAndState("http://127.0.0.1:55555/oauth2/callback?state=xyz"); err == nil {
 		t.Fatalf("expected error")
 	}
 }

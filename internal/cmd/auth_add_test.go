@@ -587,7 +587,7 @@ func TestAuthAddCmd_RemoteStep2_PassesAuthURL(t *testing.T) {
 		"--step",
 		"2",
 		"--auth-url",
-		"http://localhost:1/?code=abc&state=state123",
+		"http://127.0.0.1:55555/oauth2/callback?code=abc&state=state123",
 	}); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}

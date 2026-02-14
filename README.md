@@ -119,7 +119,7 @@ gog auth add you@gmail.com --services user --manual
 ```
 
 - The CLI prints an auth URL. Open it in a local browser.
-- After approval, copy the full localhost redirect URL from the browser address bar.
+- After approval, copy the full loopback redirect URL from the browser address bar.
 - Paste that URL back into the terminal when prompted.
 
 Split remote flow (`--remote`, useful for two-step/scripted handoff):
@@ -129,7 +129,7 @@ Split remote flow (`--remote`, useful for two-step/scripted handoff):
 gog auth add you@gmail.com --services user --remote --step 1
 
 # Step 2: paste the full redirect URL from your browser address bar
-gog auth add you@gmail.com --services user --remote --step 2 --auth-url 'http://localhost:1/?code=...&state=...'
+gog auth add you@gmail.com --services user --remote --step 2 --auth-url 'http://127.0.0.1:<port>/oauth2/callback?code=...&state=...'
 ```
 
 - The `state` is cached on disk for a short time (about 10 minutes). If it expires, rerun step 1.
