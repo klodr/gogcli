@@ -17,6 +17,7 @@
 
 ### Fixed
 
+- Calendar: interpret date-only and relative day `--to` values as inclusive end-of-day while keeping `--to now` as a point-in-time bound. (#204) — thanks @mjaskolski.
 - Gmail: avoid false quoted-printable detection for already-decoded URLs with uppercase hex-like tokens while still decoding unambiguous markers (`=3D`, chained escapes, soft breaks). (#186) — thanks @100menotu001.
 - Sheets: preserve TSV tab delimiters for `sheets get --plain` output. (#212) — thanks @salmonumbrella.
 
