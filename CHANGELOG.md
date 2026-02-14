@@ -3,27 +3,24 @@
 ## Unreleased
 
 ### Added
+- Docs/Slides: add `docs update` markdown formatting + table insertion, plus markdown-driven slides creation and template-based slide creation. (#219) — thanks @maxceem.
 - Slides: add add-slide/list-slides/delete-slide/read-slide/update-notes/replace-slide for image decks, including --before insertion and --notes '' clear behavior. (#214) — thanks @chrismdp.
-
-- Contacts: support `contacts update --birthday` and `--notes`; unify shared date parsing and docs. (#233) — thanks @rosssivertsen.
-- Gmail: add `--exclude-labels` to `watch serve` (defaults: `SPAM,TRASH`). (#194) — thanks @salmonumbrella.
-- Drive: share files with an entire Workspace domain via `drive share --to domain`. (#192) — thanks @Danielkweber.
+- Docs: add tab support (`docs list-tabs`, `docs cat --tab`, `docs cat --all-tabs`) and editing commands (`docs write|insert|delete|find-replace`). (#225) — thanks @alexknowshtml.
+- Docs: add `docs create --file` to import Markdown into Google Docs with inline image support and hardened temp-file cleanup. (#244) — thanks @maxceem.
 - Drive: add `drive upload --replace` to update files in-place (preserves `fileId`/shared link). (#232) — thanks @salmonumbrella.
 - Drive: add upload conversion flags `--convert` (auto) and `--convert-to` (`doc|sheet|slides`). (#240) — thanks @Danielkweber.
-- Docs: add `docs create --file` to import Markdown into Google Docs with inline image support and hardened temp-file cleanup. (#244) — thanks @maxceem.
-- Docs/Slides: add `docs update` markdown formatting + table insertion, plus markdown-driven slides creation and template-based slide creation. (#219) — thanks @maxceem.
-- Docs: add tab support (`docs list-tabs`, `docs cat --tab`, `docs cat --all-tabs`) and editing commands (`docs write|insert|delete|find-replace`). (#225) — thanks @alexknowshtml.
+- Drive: share files with an entire Workspace domain via `drive share --to domain`. (#192) — thanks @Danielkweber.
+- Gmail: add `--exclude-labels` to `watch serve` (defaults: `SPAM,TRASH`). (#194) — thanks @salmonumbrella.
 - Gmail: add `gmail labels delete <labelIdOrName>` with confirm + system-label guardrails and case-sensitive ID handling. (#231) — thanks @Helmi.
+- Contacts: support `contacts update --birthday` and `--notes`; unify shared date parsing and docs. (#233) — thanks @rosssivertsen.
 
 ### Fixed
-
 - Calendar: interpret date-only and relative day `--to` values as inclusive end-of-day while keeping `--to now` as a point-in-time bound. (#204) — thanks @mjaskolski.
+- Auth: improve remote/server-friendly manual OAuth flow (`auth add --remote`). (#187) — thanks @salmonumbrella.
 - Gmail: avoid false quoted-printable detection for already-decoded URLs with uppercase hex-like tokens while still decoding unambiguous markers (`=3D`, chained escapes, soft breaks). (#186) — thanks @100menotu001.
 - Sheets: preserve TSV tab delimiters for `sheets get --plain` output. (#212) — thanks @salmonumbrella.
-
-- Secrets: set keyring item labels to `gogcli` so macOS security prompts show a clear item name. (#106) — thanks @maxceem.
-- Auth: improve remote/server-friendly manual OAuth flow (`auth add --remote`). (#187) — thanks @salmonumbrella.
 - CLI: land PR #201 with conflict-resolution fixes for `--fields` rewrite, calendar `--all` paging, schema command-path parsing, and case-sensitive Gmail watch exclude-label IDs. (#201) — thanks @salmonumbrella.
+- Secrets: set keyring item labels to `gogcli` so macOS security prompts show a clear item name. (#106) — thanks @maxceem.
 
 ## 0.9.0 - 2026-01-22
 
