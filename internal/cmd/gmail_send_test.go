@@ -261,12 +261,16 @@ func TestGmailSendCmd_RunJSON_WithFrom(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/gmail/v1")
 		switch {
-		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs/alias@example.com":
+		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs":
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"sendAsEmail":        "alias@example.com",
-				"displayName":        "Alias",
-				"verificationStatus": "accepted",
+				"sendAs": []map[string]any{
+					{
+						"sendAsEmail":        "alias@example.com",
+						"displayName":        "Alias",
+						"verificationStatus": "accepted",
+					},
+				},
 			})
 			return
 		case r.Method == http.MethodPost && path == "/users/me/messages/send":
@@ -323,17 +327,8 @@ func TestGmailSendCmd_RunJSON_WithFromDisplayNameFallbackToList(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/gmail/v1")
 		switch {
-		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs/alias@example.com":
-			// Return send-as settings with empty display name but valid verification.
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"sendAsEmail":        "alias@example.com",
-				"displayName":        "",
-				"verificationStatus": "accepted",
-			})
-			return
 		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs":
-			// Fallback list endpoint returns the alias with a populated display name.
+			// List endpoint provides verification + display name (works for service-account impersonation too).
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"sendAs": []map[string]any{
@@ -377,7 +372,7 @@ func TestGmailSendCmd_RunJSON_WithFromDisplayNameFallbackToList(t *testing.T) {
 
 	cmd := &GmailSendCmd{
 		To:      "a@example.com",
-		From:    "alias@example.com",
+		From:    " alias@example.com ",
 		Subject: "Hello",
 		Body:    "Body",
 	}
@@ -399,13 +394,18 @@ func TestGmailSendCmd_RunJSON_PrimaryAccountDisplayName(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/gmail/v1")
 		switch {
-		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs/a@b.com":
-			// Return send-as settings with display name for primary account
+		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs":
+			// List endpoint returns the primary entry with display name.
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"sendAsEmail":        "a@b.com",
-				"displayName":        "Primary User",
-				"verificationStatus": "accepted",
+				"sendAs": []map[string]any{
+					{
+						"sendAsEmail":        "a@b.com",
+						"displayName":        "Primary User",
+						"verificationStatus": "accepted",
+						"isPrimary":          true,
+					},
+				},
 			})
 			return
 		case r.Method == http.MethodPost && path == "/users/me/messages/send":
@@ -463,21 +463,17 @@ func TestGmailSendCmd_RunJSON_PrimaryAccountDisplayNameFallbackToList(t *testing
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/gmail/v1")
 		switch {
-		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs/a@b.com":
-			// Simulate missing display name in get response.
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"sendAsEmail":        "a@b.com",
-				"displayName":        "",
-				"verificationStatus": "accepted",
-			})
-			return
 		case r.Method == http.MethodGet && path == "/users/me/settings/sendAs":
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"sendAs": []map[string]any{
 					{
 						"sendAsEmail":        "a@b.com",
+						"displayName":        "",
+						"verificationStatus": "accepted",
+					},
+					{
+						"sendAsEmail":        "primary@example.com",
 						"displayName":        "Primary User",
 						"verificationStatus": "accepted",
 						"isPrimary":          true,
@@ -661,11 +657,15 @@ func TestGmailSendCmd_Run_FromUnverified(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/gmail/v1")
-		if r.Method == http.MethodGet && path == "/users/me/settings/sendAs/alias@example.com" {
+		if r.Method == http.MethodGet && path == "/users/me/settings/sendAs" {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"sendAsEmail":        "alias@example.com",
-				"verificationStatus": "pending",
+				"sendAs": []map[string]any{
+					{
+						"sendAsEmail":        "alias@example.com",
+						"verificationStatus": "pending",
+					},
+				},
 			})
 			return
 		}
