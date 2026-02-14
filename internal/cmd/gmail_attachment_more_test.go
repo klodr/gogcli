@@ -150,12 +150,13 @@ func TestDownloadAttachmentToPath_DirectoryNotCachedBySize(t *testing.T) {
 	}
 }
 
-func TestGmailAttachmentCmd_DryRun_OutDir_UsesName(t *testing.T) {
-	outDir := t.TempDir()
+func mustDryRunAttachmentPath(t *testing.T, args ...string) string {
+	t.Helper()
+
 	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
 
 	out := captureStdout(t, func() {
-		err := runKong(t, &GmailAttachmentCmd{}, []string{"m1", "a1", "--out", outDir, "--name", "invoice.pdf"}, ctx, &RootFlags{DryRun: true})
+		err := runKong(t, &GmailAttachmentCmd{}, args, ctx, &RootFlags{DryRun: true})
 		var exitErr *ExitError
 		if !errors.As(err, &exitErr) || exitErr.Code != 0 {
 			t.Fatalf("expected exit code 0, got: %v", err)
@@ -174,40 +175,25 @@ func TestGmailAttachmentCmd_DryRun_OutDir_UsesName(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected request.path string, got=%T", req["path"])
 	}
+	return path
+}
+
+func TestGmailAttachmentCmd_DryRun_OutDir_UsesName(t *testing.T) {
+	outDir := t.TempDir()
+	got := mustDryRunAttachmentPath(t, "m1", "a1", "--out", outDir, "--name", "invoice.pdf")
 	want := filepath.Join(outDir, "invoice.pdf")
-	if path != want {
-		t.Fatalf("unexpected path: got=%q want=%q", path, want)
+	if got != want {
+		t.Fatalf("unexpected path: got=%q want=%q", got, want)
 	}
 }
 
 func TestGmailAttachmentCmd_DryRun_OutDirTrailingSlash_UsesNameEvenIfMissing(t *testing.T) {
 	base := t.TempDir()
 	outDir := filepath.Join(base, "newdir") + string(os.PathSeparator)
-	ctx := outfmt.WithMode(context.Background(), outfmt.Mode{JSON: true})
-
-	out := captureStdout(t, func() {
-		err := runKong(t, &GmailAttachmentCmd{}, []string{"m1", "a1", "--out", outDir, "--name", "invoice.pdf"}, ctx, &RootFlags{DryRun: true})
-		var exitErr *ExitError
-		if !errors.As(err, &exitErr) || exitErr.Code != 0 {
-			t.Fatalf("expected exit code 0, got: %v", err)
-		}
-	})
-
-	var got map[string]any
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal: %v\noutput=%q", err, out)
-	}
-	req, ok := got["request"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected request object, got=%T", got["request"])
-	}
-	path, ok := req["path"].(string)
-	if !ok {
-		t.Fatalf("expected request.path string, got=%T", req["path"])
-	}
+	got := mustDryRunAttachmentPath(t, "m1", "a1", "--out", outDir, "--name", "invoice.pdf")
 	want := filepath.Join(filepath.Join(base, "newdir"), "invoice.pdf")
-	if path != want {
-		t.Fatalf("unexpected path: got=%q want=%q", path, want)
+	if got != want {
+		t.Fatalf("unexpected path: got=%q want=%q", got, want)
 	}
 }
 

@@ -48,7 +48,7 @@ func resolveAttachmentOutPath(outPathFlag string, name string) (string, error) {
 	// Directory intent:
 	// - existing directory path
 	// - or explicit trailing slash for a (possibly non-existent) directory
-	isDir := strings.HasSuffix(outPathFlag, "/") || strings.HasSuffix(outPathFlag, "\\")
+	isDir := strings.HasSuffix(outPathFlag, string(os.PathSeparator)) || strings.HasSuffix(outPathFlag, "/") || strings.HasSuffix(outPathFlag, "\\")
 	if !isDir {
 		if info, statErr := os.Stat(outPath); statErr == nil && info.IsDir() {
 			isDir = true
@@ -59,6 +59,16 @@ func resolveAttachmentOutPath(outPathFlag string, name string) (string, error) {
 	}
 
 	return outPath, nil
+}
+
+func printAttachmentDownloadResult(ctx context.Context, u *ui.UI, path string, cached bool, bytes int64) error {
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"path": path, "cached": cached, "bytes": bytes})
+	}
+	u.Out().Printf("path\t%s", path)
+	u.Out().Printf("cached\t%t", cached)
+	u.Out().Printf("bytes\t%d", bytes)
+	return nil
 }
 
 func (c *GmailAttachmentCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -124,13 +134,7 @@ func (c *GmailAttachmentCmd) Run(ctx context.Context, flags *RootFlags) error {
 		if dlErr != nil {
 			return dlErr
 		}
-		if outfmt.IsJSON(ctx) {
-			return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"path": path, "cached": cached, "bytes": bytes})
-		}
-		u.Out().Printf("path\t%s", path)
-		u.Out().Printf("cached\t%t", cached)
-		u.Out().Printf("bytes\t%d", bytes)
-		return nil
+		return printAttachmentDownloadResult(ctx, u, path, cached, bytes)
 	}
 
 	outPath, err := resolveAttachmentOutPath(outPathFlag, c.Name)
@@ -141,13 +145,7 @@ func (c *GmailAttachmentCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if err != nil {
 		return err
 	}
-	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"path": path, "cached": cached, "bytes": bytes})
-	}
-	u.Out().Printf("path\t%s", path)
-	u.Out().Printf("cached\t%t", cached)
-	u.Out().Printf("bytes\t%d", bytes)
-	return nil
+	return printAttachmentDownloadResult(ctx, u, path, cached, bytes)
 }
 
 func downloadAttachmentToPath(
