@@ -124,3 +124,48 @@ func TestDesirePaths_RewriteFields_KeepsCalendarEventsAlias(t *testing.T) {
 		t.Fatalf("unexpected rewrite: got=%v want=%v", got, in)
 	}
 }
+
+func TestDesirePaths_RewriteFields_KeepsCalendarEventsWithPickAndProject(t *testing.T) {
+	cases := [][]string{
+		{"--pick", "id", "calendar", "events", "--fields", "items(id)"},
+		{"--project", "id", "calendar", "events", "--fields", "items(id)"},
+	}
+	for _, in := range cases {
+		in := in
+		t.Run(strings.Join(in, " "), func(t *testing.T) {
+			got := rewriteDesirePathArgs(in)
+			if !reflect.DeepEqual(got, in) {
+				t.Fatalf("unexpected rewrite: got=%v want=%v", got, in)
+			}
+		})
+	}
+}
+
+func TestDesirePaths_CalendarAliases_AreUnambiguous(t *testing.T) {
+	calendarField, ok := reflect.TypeOf(CalendarCmd{}).FieldByName("Calendars")
+	if !ok {
+		t.Fatalf("missing Calendars field")
+	}
+	if aliases := calendarField.Tag.Get("aliases"); strings.Contains(aliases, "list") || strings.Contains(aliases, "ls") {
+		t.Fatalf("calendar calendars must not claim list/ls aliases: %q", aliases)
+	}
+
+	eventsField, ok := reflect.TypeOf(CalendarCmd{}).FieldByName("Events")
+	if !ok {
+		t.Fatalf("missing Events field")
+	}
+	aliases := eventsField.Tag.Get("aliases")
+	if !strings.Contains(aliases, "list") || !strings.Contains(aliases, "ls") {
+		t.Fatalf("calendar events should keep list/ls aliases: %q", aliases)
+	}
+}
+
+func TestDesirePaths_GroupsMembers_DoesNotReuseListAliases(t *testing.T) {
+	membersField, ok := reflect.TypeOf(GroupsCmd{}).FieldByName("Members")
+	if !ok {
+		t.Fatalf("missing Members field")
+	}
+	if aliases := membersField.Tag.Get("aliases"); strings.Contains(aliases, "list") || strings.Contains(aliases, "ls") {
+		t.Fatalf("groups members must not claim list/ls aliases: %q", aliases)
+	}
+}

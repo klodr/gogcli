@@ -18,7 +18,8 @@ func dryRunExit(ctx context.Context, flags *RootFlags, op string, request any) e
 	}
 
 	if outfmt.IsJSON(ctx) {
-		_ = outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		jsonCtx := outfmt.WithJSONTransform(ctx, outfmt.JSONTransform{})
+		_ = outfmt.WriteJSON(jsonCtx, os.Stdout, map[string]any{
 			"dry_run": true,
 			"op":      op,
 			"request": request,

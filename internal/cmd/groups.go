@@ -25,7 +25,7 @@ const (
 
 type GroupsCmd struct {
 	List    GroupsListCmd    `cmd:"" name:"list" aliases:"ls" help:"List groups you belong to"`
-	Members GroupsMembersCmd `cmd:"" name:"members" aliases:"list,ls" help:"List members of a group"`
+	Members GroupsMembersCmd `cmd:"" name:"members" help:"List members of a group"`
 }
 
 type GroupsListCmd struct {

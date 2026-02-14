@@ -252,7 +252,7 @@ func isCalendarEventsCommand(args []string) bool {
 
 func globalFlagTakesValue(flag string) bool {
 	switch flag {
-	case "--color", "--account", "--acct", "--client", "--enable-commands", "--select", "-a":
+	case "--color", "--account", "--acct", "--client", "--enable-commands", "--select", "--pick", "--project", "-a":
 		return true
 	default:
 		return false
