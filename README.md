@@ -510,6 +510,15 @@ Options:
 - Re-authorize with `--force-consent` if you suspect token compromise
 - Remove unused accounts with `gog auth remove <email>`
 
+### OAuth Client IDs in Open Source
+
+Some open source Google CLIs ship a pre-configured OAuth client ID/secret copied from other desktop apps to avoid OAuth consent verification, testing-user limits, or quota issues. This makes the consent screen/security emails show the other app’s name and can stop working at any time.
+
+`gogcli` does not do this. Supported auth:
+
+- Your own OAuth Desktop client JSON via `gog auth credentials ...` + `gog auth add ...`
+- Google Workspace service accounts with domain-wide delegation (Workspace only)
+
 ## Commands
 
 Flag aliases:
