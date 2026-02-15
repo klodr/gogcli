@@ -837,6 +837,7 @@ gog drive mkdir "New Folder" --parent <parentFolderId>
 gog drive rename <fileId> "New Name"
 gog drive move <fileId> --parent <destinationFolderId>
 gog drive delete <fileId>             # Move to trash
+gog drive delete <fileId> --permanent # Permanently delete
 
 # Permissions
 gog drive permissions <fileId>
