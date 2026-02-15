@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.11.0 - 2026-02-15
+
 ### Added
 - Apps Script: add `appscript` command group (create/get projects, fetch content, run deployed functions).
 - Forms: add `forms` command group (create/get forms, list/get responses).
