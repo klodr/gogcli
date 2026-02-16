@@ -15,7 +15,7 @@ Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Sli
 - **Drive** - list/search/upload/download files, manage permissions/comments, organize folders, list shared drives
 - **Contacts** - search/create/update contacts, access Workspace directory/other contacts
 - **Tasks** - manage tasklists and tasks: get/create/add/update/done/undo/delete/clear, repeat schedules
-- **Sheets** - read/write/update spreadsheets, format cells, create new sheets (and export via Drive)
+- **Sheets** - read/write/update spreadsheets, insert rows/cols, format cells, read notes, create new sheets (and export via Drive)
 - **Forms** - create/get forms and inspect responses
 - **Apps Script** - create/get projects, inspect content, and run functions
 - **Docs/Slides** - export to PDF/DOCX/PPTX via Drive (plus create/copy, docs-to-text)
@@ -884,6 +884,8 @@ gog slides replace-slide <presentationId> <slideId> ./new-slide.png --notes "New
 gog sheets copy <spreadsheetId> "My Sheet Copy"
 gog sheets export <spreadsheetId> --format pdf --out ./sheet.pdf
 gog sheets format <spreadsheetId> 'Sheet1!A1:B2' --format-json '{"textFormat":{"bold":true}}' --format-fields 'userEnteredFormat.textFormat.bold'
+gog sheets insert <spreadsheetId> "Sheet1" rows 2 --count 3
+gog sheets notes <spreadsheetId> 'Sheet1!A1:B10'
 ```
 
 ### Contacts
@@ -968,6 +970,13 @@ gog sheets clear <spreadsheetId> 'Sheet1!A1:B10'
 
 # Format
 gog sheets format <spreadsheetId> 'Sheet1!A1:B2' --format-json '{"textFormat":{"bold":true}}' --format-fields 'userEnteredFormat.textFormat.bold'
+
+# Insert rows/cols
+gog sheets insert <spreadsheetId> "Sheet1" rows 2 --count 3
+gog sheets insert <spreadsheetId> "Sheet1" cols 3 --after
+
+# Notes
+gog sheets notes <spreadsheetId> 'Sheet1!A1:B10'
 
 # Create
 gog sheets create "My New Spreadsheet" --sheets "Sheet1,Sheet2"
