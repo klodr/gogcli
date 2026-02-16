@@ -18,8 +18,22 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
+func newTestCalendarService(t *testing.T, handler http.Handler) (*calendar.Service, func()) {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	svc, err := calendar.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("calendar.NewService: %v", err)
+	}
+	return svc, srv.Close
+}
+
 func TestListCalendarEvents_JSON(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	svc, closeServer := newTestCalendarService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/calendars/cal1/events") && r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
@@ -32,16 +46,7 @@ func TestListCalendarEvents_JSON(t *testing.T) {
 		}
 		http.NotFound(w, r)
 	}))
-	defer srv.Close()
-
-	svc, err := calendar.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
+	defer closeServer()
 
 	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
 	if err != nil {
@@ -72,7 +77,7 @@ func TestCalendarEventsCmd_DefaultsToPrimary(t *testing.T) {
 	origNew := newCalendarService
 	t.Cleanup(func() { newCalendarService = origNew })
 
-	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	svc, closeServer := newTestCalendarService(t, withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/calendars/primary/events") && r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
@@ -85,16 +90,7 @@ func TestCalendarEventsCmd_DefaultsToPrimary(t *testing.T) {
 		}
 		http.NotFound(w, r)
 	})))
-	defer srv.Close()
-
-	svc, err := calendar.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
+	defer closeServer()
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
 	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
@@ -125,7 +121,7 @@ func TestCalendarEventsCmd_CalendarsFlag(t *testing.T) {
 	var mu sync.Mutex
 	calls := make(map[string]int)
 
-	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	svc, closeServer := newTestCalendarService(t, withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/calendarList") &&
 			!strings.Contains(r.URL.Path, "/calendarList/primary") &&
@@ -172,16 +168,7 @@ func TestCalendarEventsCmd_CalendarsFlag(t *testing.T) {
 			return
 		}
 	})))
-	defer srv.Close()
-
-	svc, err := calendar.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
+	defer closeServer()
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
 	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
@@ -220,7 +207,7 @@ func TestCalendarEventsCmd_CalendarsFlag(t *testing.T) {
 }
 
 func TestResolveCalendarIDs_IndexOutOfRange(t *testing.T) {
-	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	svc, closeServer := newTestCalendarService(t, withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/calendarList") &&
 			!strings.Contains(r.URL.Path, "/calendarList/primary") &&
 			r.Method == http.MethodGet {
@@ -234,18 +221,9 @@ func TestResolveCalendarIDs_IndexOutOfRange(t *testing.T) {
 		}
 		http.NotFound(w, r)
 	})))
-	defer srv.Close()
+	defer closeServer()
 
-	svc, err := calendar.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
-
-	_, err = resolveCalendarIDs(context.Background(), svc, []string{"2"})
+	_, err := resolveCalendarIDs(context.Background(), svc, []string{"2"})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -256,7 +234,7 @@ func TestResolveCalendarIDs_IndexOutOfRange(t *testing.T) {
 }
 
 func TestResolveCalendarIDs_AmbiguousName(t *testing.T) {
-	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	svc, closeServer := newTestCalendarService(t, withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/calendarList") &&
 			!strings.Contains(r.URL.Path, "/calendarList/primary") &&
 			r.Method == http.MethodGet {
@@ -272,18 +250,9 @@ func TestResolveCalendarIDs_AmbiguousName(t *testing.T) {
 		}
 		http.NotFound(w, r)
 	})))
-	defer srv.Close()
+	defer closeServer()
 
-	svc, err := calendar.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
-
-	_, err = resolveCalendarIDs(context.Background(), svc, []string{"Work"})
+	_, err := resolveCalendarIDs(context.Background(), svc, []string{"Work"})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -297,7 +266,7 @@ func TestResolveCalendarIDs_AmbiguousName(t *testing.T) {
 }
 
 func TestResolveCalendarIDs_UnrecognizedName(t *testing.T) {
-	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	svc, closeServer := newTestCalendarService(t, withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/calendarList") &&
 			!strings.Contains(r.URL.Path, "/calendarList/primary") &&
 			r.Method == http.MethodGet {
@@ -312,19 +281,10 @@ func TestResolveCalendarIDs_UnrecognizedName(t *testing.T) {
 		}
 		http.NotFound(w, r)
 	})))
-	defer srv.Close()
-
-	svc, err := calendar.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
+	defer closeServer()
 
 	// Test single unrecognized name
-	_, err = resolveCalendarIDs(context.Background(), svc, []string{"NonExistent"})
+	_, err := resolveCalendarIDs(context.Background(), svc, []string{"NonExistent"})
 	if err == nil {
 		t.Fatalf("expected error for unrecognized calendar name")
 	}

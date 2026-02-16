@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"google.golang.org/api/calendar/v3"
@@ -14,6 +15,32 @@ const (
 	defaultTaskListID = "@default"
 	primaryCalendarID = "primary"
 )
+
+type calendarSelectionKind int
+
+const (
+	calendarSelectionName calendarSelectionKind = iota
+	calendarSelectionIndex
+)
+
+type calendarSelectionInput struct {
+	kind  calendarSelectionKind
+	raw   string
+	lower string
+	index int
+}
+
+type calendarResolveOptions struct {
+	strict        bool
+	allowIndex    bool
+	allowIDLookup bool
+}
+
+type calendarSelectionData struct {
+	calendars []*calendar.CalendarListEntry
+	byID      map[string]string
+	bySummary map[string][]string
+}
 
 // resolveTasklistID resolves a task list title to an ID (case-insensitive exact match).
 // If input matches an existing ID, it is returned unchanged.
@@ -115,61 +142,176 @@ func resolveCalendarID(ctx context.Context, svc *calendar.Service, input string)
 		return in, nil
 	}
 
-	type match struct {
-		ID      string
-		Summary string
+	ids, err := resolveCalendarInputs(ctx, svc, []string{in}, calendarResolveOptions{
+		strict: false,
+	})
+	if err != nil {
+		return "", err
+	}
+	if len(ids) == 0 {
+		return in, nil
+	}
+	return ids[0], nil
+}
+
+func resolveCalendarInputs(ctx context.Context, svc *calendar.Service, inputs []string, opts calendarResolveOptions) ([]string, error) {
+	if len(inputs) == 0 {
+		return nil, nil
 	}
 
-	var matches []match
-	seenTokens := map[string]bool{}
-	pageToken := ""
-	for {
-		if seenTokens[pageToken] {
-			return "", fmt.Errorf("pagination loop while listing calendars (repeated page token %q)", pageToken)
-		}
-		seenTokens[pageToken] = true
+	data, err := buildCalendarSelectionData(ctx, svc)
+	if err != nil {
+		return nil, err
+	}
 
-		call := svc.CalendarList.List().MaxResults(250).Context(ctx)
-		if pageToken != "" {
-			call = call.PageToken(pageToken)
-		}
-		resp, err := call.Do()
+	out := make([]string, 0, len(inputs))
+	seen := make(map[string]struct{}, len(inputs))
+	var unrecognized []string
+
+	for _, raw := range inputs {
+		input, err := parseCalendarSelectionInput(raw)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		for _, cal := range resp.Items {
-			if cal == nil {
+		if input.raw == "" {
+			continue
+		}
+
+		if input.kind == calendarSelectionIndex && opts.allowIndex {
+			idx := input.index
+			if idx < 1 || idx > len(data.calendars) {
+				return nil, usagef("calendar index %d out of range (have %d calendars)", idx, len(data.calendars))
+			}
+			cal := data.calendars[idx-1]
+			if cal == nil || strings.TrimSpace(cal.Id) == "" {
+				return nil, usagef("calendar index %d has no id", idx)
+			}
+			appendUniqueCalendarID(&out, seen, cal.Id)
+			continue
+		}
+
+		if ids, ok := data.bySummary[input.lower]; ok {
+			if len(ids) > 1 {
+				return nil, ambiguousCalendarError(input.raw, ids)
+			}
+			appendUniqueCalendarID(&out, seen, ids[0])
+			continue
+		}
+
+		if opts.allowIDLookup {
+			if id, ok := data.byID[input.lower]; ok {
+				appendUniqueCalendarID(&out, seen, id)
 				continue
 			}
-			if strings.EqualFold(strings.TrimSpace(cal.Summary), in) {
-				id := strings.TrimSpace(cal.Id)
-				if id != "" {
-					matches = append(matches, match{ID: id, Summary: strings.TrimSpace(cal.Summary)})
-				}
-			}
 		}
-		next := strings.TrimSpace(resp.NextPageToken)
-		if next == "" {
-			break
+
+		if !opts.strict {
+			appendUniqueCalendarID(&out, seen, input.raw)
+			continue
 		}
-		pageToken = next
+		unrecognized = append(unrecognized, input.raw)
 	}
 
-	if len(matches) == 1 {
-		return matches[0].ID, nil
-	}
-	if len(matches) > 1 {
-		sort.Slice(matches, func(i, j int) bool { return matches[i].ID < matches[j].ID })
-		parts := make([]string, 0, len(matches))
-		for _, m := range matches {
-			label := m.Summary
-			if label == "" {
-				label = "(unnamed)"
-			}
-			parts = append(parts, fmt.Sprintf("%s (%s)", label, m.ID))
-		}
-		return "", usagef("ambiguous calendar %q; matches: %s", in, strings.Join(parts, ", "))
+	if len(unrecognized) > 0 {
+		return nil, usagef("unrecognized calendar name(s): %s", strings.Join(unrecognized, ", "))
 	}
 
-	return in, nil
+	return out, nil
+}
+
+func resolveCalendarIDList(calendars []*calendar.CalendarListEntry) *calendarSelectionData {
+	byID := make(map[string]string, len(calendars))
+	bySummary := make(map[string][]string, len(calendars))
+	for _, cal := range calendars {
+		if cal == nil {
+			continue
+		}
+		if strings.TrimSpace(cal.Id) != "" {
+			byID[strings.ToLower(strings.TrimSpace(cal.Id))] = cal.Id
+		}
+		if strings.TrimSpace(cal.Summary) != "" {
+			summaryKey := strings.ToLower(strings.TrimSpace(cal.Summary))
+			bySummary[summaryKey] = append(bySummary[summaryKey], cal.Id)
+		}
+	}
+	return &calendarSelectionData{
+		calendars: calendars,
+		byID:      byID,
+		bySummary: bySummary,
+	}
+}
+
+func buildCalendarSelectionData(ctx context.Context, svc *calendar.Service) (*calendarSelectionData, error) {
+	calendars, err := listCalendarList(ctx, svc)
+	if err != nil {
+		return nil, err
+	}
+	return resolveCalendarIDList(calendars), nil
+}
+
+func parseCalendarSelectionInput(raw string) (calendarSelectionInput, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return calendarSelectionInput{}, nil
+	}
+
+	idx, isIndex, err := parseCalendarSelectionIndex(value)
+	if err != nil {
+		return calendarSelectionInput{}, err
+	}
+	input := calendarSelectionInput{
+		raw:   value,
+		lower: strings.ToLower(value),
+	}
+	if isIndex {
+		input.kind = calendarSelectionIndex
+		input.index = idx
+		return input, nil
+	}
+	return input, nil
+}
+
+func parseCalendarSelectionIndex(value string) (int, bool, error) {
+	if !isDigits(value) {
+		return 0, false, nil
+	}
+	index, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, true, usagef("invalid calendar index: %s", value)
+	}
+	return index, true, nil
+}
+
+func ambiguousCalendarError(input string, ids []string) error {
+	if len(ids) == 0 {
+		return usagef("ambiguous calendar %q", input)
+	}
+	sorted := make([]string, len(ids))
+	copy(sorted, ids)
+	sort.Strings(sorted)
+	return usagef("ambiguous calendar %q; matches: %s", input, strings.Join(sorted, ", "))
+}
+
+func appendUniqueCalendarID(out *[]string, seen map[string]struct{}, id string) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return
+	}
+	if _, ok := seen[id]; ok {
+		return
+	}
+	seen[id] = struct{}{}
+	*out = append(*out, id)
+}
+
+func isDigits(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
