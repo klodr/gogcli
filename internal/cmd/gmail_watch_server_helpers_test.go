@@ -159,8 +159,39 @@ func TestParseHistoryTypes(t *testing.T) {
 	}
 	if _, err := parseHistoryTypes([]string{"nope"}); err == nil {
 		t.Fatalf("expected error for invalid history type")
-	} else if err.Error() != "--history-types must be one of messageAdded,messageDeleted,labelAdded,labelRemoved" {
+	} else if err.Error() != "--history-types must be one of "+gmailHistoryTypesHelp {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseHistoryTypes_CanonicalizationAndDeduplication(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []string
+		want  []string
+	}{
+		{
+			name:  "mixed case and spaces are normalized",
+			input: []string{" MessageAdded ", " LABELADDED ", "messagesdeleted "},
+			want:  []string{"messageAdded", "labelAdded", "messageDeleted"},
+		},
+		{
+			name:  "duplicates collapsed while preserving order",
+			input: []string{"labelsAdded", "LabelAdded", "labelsadded", "messageadded"},
+			want:  []string{"labelAdded", "messageAdded"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseHistoryTypes(tt.input)
+			if err != nil {
+				t.Fatalf("parseHistoryTypes(%v): %v", tt.input, err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("unexpected parsed types: %v", got)
+			}
+		})
 	}
 }
 

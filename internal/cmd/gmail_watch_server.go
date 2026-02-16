@@ -535,7 +535,7 @@ func collectHistoryMessageIDs(resp *gmail.ListHistoryResponse) historyMessageIDs
 	var result historyMessageIDs
 
 	addFetch := func(id string) {
-		if strings.TrimSpace(id) == "" {
+		if id == "" {
 			return
 		}
 		if _, ok := fetchIdx[id]; ok {
@@ -550,7 +550,7 @@ func collectHistoryMessageIDs(resp *gmail.ListHistoryResponse) historyMessageIDs
 	}
 
 	addDeleted := func(id string) {
-		if strings.TrimSpace(id) == "" {
+		if id == "" {
 			return
 		}
 		if _, ok := seenDeleted[id]; ok {
@@ -566,39 +566,43 @@ func collectHistoryMessageIDs(resp *gmail.ListHistoryResponse) historyMessageIDs
 		result.DeletedIDs = append(result.DeletedIDs, id)
 	}
 
+	messageID := func(msg *gmail.Message) string {
+		if msg == nil {
+			return ""
+		}
+		return strings.TrimSpace(msg.Id)
+	}
+
 	for _, h := range resp.History {
 		if h == nil {
 			continue
 		}
 		for _, added := range h.MessagesAdded {
-			if added == nil || added.Message == nil || added.Message.Id == "" {
+			if added == nil {
 				continue
 			}
-			addFetch(added.Message.Id)
+			addFetch(messageID(added.Message))
 		}
 		for _, deleted := range h.MessagesDeleted {
-			if deleted == nil || deleted.Message == nil || deleted.Message.Id == "" {
+			if deleted == nil {
 				continue
 			}
-			addDeleted(deleted.Message.Id)
+			addDeleted(messageID(deleted.Message))
 		}
 		for _, added := range h.LabelsAdded {
-			if added == nil || added.Message == nil || added.Message.Id == "" {
+			if added == nil {
 				continue
 			}
-			addFetch(added.Message.Id)
+			addFetch(messageID(added.Message))
 		}
 		for _, removed := range h.LabelsRemoved {
-			if removed == nil || removed.Message == nil || removed.Message.Id == "" {
+			if removed == nil {
 				continue
 			}
-			addFetch(removed.Message.Id)
+			addFetch(messageID(removed.Message))
 		}
 		for _, msg := range h.Messages {
-			if msg == nil || msg.Id == "" {
-				continue
-			}
-			addFetch(msg.Id)
+			addFetch(messageID(msg))
 		}
 	}
 	if len(fetchIdx) != len(result.FetchIDs) {

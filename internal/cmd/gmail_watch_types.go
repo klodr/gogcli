@@ -70,7 +70,7 @@ var gmailHistoryTypes = []string{
 	"labelRemoved",
 }
 
-const gmailHistoryTypesHelp = "messageAdded,messageDeleted,labelAdded,labelRemoved"
+var gmailHistoryTypesHelp = strings.Join(gmailHistoryTypes, ",")
 
 var gmailHistoryTypeAliases = func() map[string]string {
 	aliases := make(map[string]string, len(gmailHistoryTypes)+4)
