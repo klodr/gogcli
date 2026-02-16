@@ -159,6 +159,8 @@ func TestParseHistoryTypes(t *testing.T) {
 	}
 	if _, err := parseHistoryTypes([]string{"nope"}); err == nil {
 		t.Fatalf("expected error for invalid history type")
+	} else if err.Error() != "--history-types must be one of messageAdded,messageDeleted,labelAdded,labelRemoved" {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -216,14 +218,21 @@ func TestParseHistoryTypes_EmptyStringsInInput(t *testing.T) {
 }
 
 func TestParseHistoryTypes_RejectsEmptyOnlyInput(t *testing.T) {
+	expect := "--history-types must include at least one value"
 	if _, err := parseHistoryTypes([]string{","}); err == nil {
 		t.Fatalf("expected error for empty-only history types")
+	} else if err.Error() != expect {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if _, err := parseHistoryTypes([]string{" , "}); err == nil {
 		t.Fatalf("expected error for whitespace-only history types")
+	} else if err.Error() != expect {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if _, err := parseHistoryTypes([]string{", ,"}); err == nil {
 		t.Fatalf("expected error for comma/whitespace-only history types")
+	} else if err.Error() != expect {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

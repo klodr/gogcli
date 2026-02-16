@@ -63,22 +63,26 @@ type gmailWatchServeConfig struct {
 	VerboseOutput bool
 }
 
-var gmailHistoryTypeAliases = map[string]string{
-	// Canonical forms (for robustness when users provide exact casing)
-	"messageAdded":   "messageAdded",
-	"messageDeleted": "messageDeleted",
-	"labelAdded":     "labelAdded",
-	"labelRemoved":   "labelRemoved",
-	// Lowercase aliases
-	"messageadded":    "messageAdded",
-	"messagesadded":   "messageAdded",
-	"messagedeleted":  "messageDeleted",
-	"messagesdeleted": "messageDeleted",
-	"labeladded":      "labelAdded",
-	"labelsadded":     "labelAdded",
-	"labelremoved":    "labelRemoved",
-	"labelsremoved":   "labelRemoved",
+var gmailHistoryTypes = []string{
+	"messageAdded",
+	"messageDeleted",
+	"labelAdded",
+	"labelRemoved",
 }
+
+const gmailHistoryTypesHelp = "messageAdded,messageDeleted,labelAdded,labelRemoved"
+
+var gmailHistoryTypeAliases = func() map[string]string {
+	aliases := make(map[string]string, len(gmailHistoryTypes)+4)
+	for _, historyType := range gmailHistoryTypes {
+		aliases[strings.ToLower(historyType)] = historyType
+	}
+	aliases["messagesadded"] = "messageAdded"
+	aliases["messagesdeleted"] = "messageDeleted"
+	aliases["labelsadded"] = "labelAdded"
+	aliases["labelsremoved"] = "labelRemoved"
+	return aliases
+}()
 
 func parseHistoryTypes(values []string) ([]string, error) {
 	if len(values) == 0 {
@@ -96,7 +100,7 @@ func parseHistoryTypes(values []string) ([]string, error) {
 			}
 			normalized, ok := gmailHistoryTypeAliases[strings.ToLower(trimmed)]
 			if !ok {
-				return nil, usage("--history-types must be one of messageAdded,messageDeleted,labelAdded,labelRemoved")
+				return nil, usage("--history-types must be one of " + gmailHistoryTypesHelp)
 			}
 			if _, exists := seen[normalized]; exists {
 				continue

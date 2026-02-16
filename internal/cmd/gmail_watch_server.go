@@ -530,7 +530,7 @@ func collectHistoryMessageIDs(resp *gmail.ListHistoryResponse) historyMessageIDs
 	if resp == nil || len(resp.History) == 0 {
 		return historyMessageIDs{}
 	}
-	seenFetch := make(map[string]struct{})
+	fetchIdx := make(map[string]int)
 	seenDeleted := make(map[string]struct{})
 	var result historyMessageIDs
 
@@ -538,14 +538,14 @@ func collectHistoryMessageIDs(resp *gmail.ListHistoryResponse) historyMessageIDs
 		if strings.TrimSpace(id) == "" {
 			return
 		}
-		if _, ok := seenFetch[id]; ok {
+		if _, ok := fetchIdx[id]; ok {
 			return
 		}
 		// If already marked as deleted, don't add to fetch list
 		if _, ok := seenDeleted[id]; ok {
 			return
 		}
-		seenFetch[id] = struct{}{}
+		fetchIdx[id] = len(result.FetchIDs)
 		result.FetchIDs = append(result.FetchIDs, id)
 	}
 
@@ -556,15 +556,11 @@ func collectHistoryMessageIDs(resp *gmail.ListHistoryResponse) historyMessageIDs
 		if _, ok := seenDeleted[id]; ok {
 			return
 		}
-		// Remove from fetch list if previously added
-		if _, ok := seenFetch[id]; ok {
-			delete(seenFetch, id)
-			for i, fid := range result.FetchIDs {
-				if fid == id {
-					result.FetchIDs = append(result.FetchIDs[:i], result.FetchIDs[i+1:]...)
-					break
-				}
-			}
+		// Mark as removed from fetch list if previously added.
+		// A final compaction keeps stable order while avoiding O(n) delete per tombstone.
+		if i, ok := fetchIdx[id]; ok {
+			delete(fetchIdx, id)
+			result.FetchIDs[i] = ""
 		}
 		seenDeleted[id] = struct{}{}
 		result.DeletedIDs = append(result.DeletedIDs, id)
@@ -604,6 +600,15 @@ func collectHistoryMessageIDs(resp *gmail.ListHistoryResponse) historyMessageIDs
 			}
 			addFetch(msg.Id)
 		}
+	}
+	if len(fetchIdx) != len(result.FetchIDs) {
+		compacted := result.FetchIDs[:0]
+		for _, id := range result.FetchIDs {
+			if id != "" {
+				compacted = append(compacted, id)
+			}
+		}
+		result.FetchIDs = compacted
 	}
 	return result
 }
