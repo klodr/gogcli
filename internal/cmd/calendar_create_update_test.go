@@ -564,7 +564,11 @@ func TestCalendarUpdateCmd_ScopeFuture(t *testing.T) {
 	origNew := newCalendarService
 	t.Cleanup(func() { newCalendarService = origNew })
 
-	var truncated bool
+	var (
+		truncated               bool
+		instancePatchUpdatesVal string
+		parentPatchUpdatesVal   string
+	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/calendar/v3")
 		switch {
@@ -589,11 +593,13 @@ func TestCalendarUpdateCmd_ScopeFuture(t *testing.T) {
 			})
 			return
 		case r.Method == http.MethodPatch && path == "/calendars/cal@example.com/events/ev_1":
+			instancePatchUpdatesVal = r.URL.Query().Get("sendUpdates")
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{"id": "ev_1"})
 			return
 		case r.Method == http.MethodPatch && path == "/calendars/cal@example.com/events/ev":
 			truncated = true
+			parentPatchUpdatesVal = r.URL.Query().Get("sendUpdates")
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{"id": "ev"})
 			return
@@ -627,10 +633,17 @@ func TestCalendarUpdateCmd_ScopeFuture(t *testing.T) {
 		"--summary", "Updated",
 		"--scope", "future",
 		"--original-start", "2025-01-02T10:00:00Z",
+		"--send-updates", "all",
 	}, ctx, &RootFlags{Account: "a@b.com"}); err != nil {
 		t.Fatalf("runKong: %v", err)
 	}
 	if !truncated {
 		t.Fatalf("expected recurrence truncation")
+	}
+	if instancePatchUpdatesVal != "all" {
+		t.Fatalf("expected instance patch sendUpdates=all, got %q", instancePatchUpdatesVal)
+	}
+	if parentPatchUpdatesVal != "all" {
+		t.Fatalf("expected parent patch sendUpdates=all, got %q", parentPatchUpdatesVal)
 	}
 }
