@@ -833,6 +833,7 @@ gog time now --timezone UTC
 # List and search
 gog drive ls --max 20
 gog drive ls --parent <folderId> --max 20
+gog drive ls --all --max 20               # List across all accessible files (cannot combine with --parent)
 gog drive ls --no-all-drives            # Only list from "My Drive"
 gog drive search "invoice" --max 20
 gog drive search "invoice" --no-all-drives
