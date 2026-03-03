@@ -27,7 +27,7 @@ Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Sli
 - **Command allowlist** - restrict top-level commands for sandboxed/agent runs
 - **Secure credential storage** using OS keyring or encrypted on-disk keyring (configurable)
 - **Auto-refreshing tokens** - authenticate once, use indefinitely
-- **Least-privilege auth** - `--readonly` and `--drive-scope` to request fewer scopes
+- **Least-privilege auth** - `--readonly`, `--drive-scope`, and `--gmail-scope` to request fewer scopes
 - **Workspace service accounts** - domain-wide delegation auth (preferred when configured)
 - **Parseable output** - JSON mode for scripting and automation (Calendar adds day-of-week fields)
 
@@ -324,6 +324,8 @@ To control Gmail’s scope (default: `full`):
 ```bash
 gog auth add you@gmail.com --services gmail --gmail-scope full
 gog auth add you@gmail.com --services gmail --gmail-scope readonly
+# Example: readonly on both Gmail and Drive
+gog auth add you@gmail.com --services gmail,drive --gmail-scope readonly --drive-scope readonly
 ```
 
 Notes:
@@ -331,6 +333,7 @@ Notes:
 - `--drive-scope readonly` is enough for listing/downloading/exporting via Drive (write operations will 403).
 - `--drive-scope file` is write-capable (limited to files created/opened by this app) and can’t be combined with `--readonly`.
 - `--gmail-scope readonly` requests `gmail.readonly` (no modify/settings write scopes).
+- For `--readonly`, `--drive-scope readonly|file`, or `--gmail-scope readonly`, auth disables Google `include_granted_scopes` to prevent old broader grants from silently accumulating.
 
 If you need to add services later and Google doesn't return a refresh token, re-run with `--force-consent`:
 
@@ -546,6 +549,7 @@ gog auth credentials <path>           # Store OAuth client credentials
 gog auth credentials list             # List stored OAuth client credentials
 gog --client work auth credentials <path>  # Store named OAuth client credentials
 gog auth add <email>                  # Authorize and store refresh token
+gog auth add <email> --services gmail --gmail-scope readonly  # Gmail read-only token
 gog auth service-account set <email> --key <path>  # Configure service account impersonation (Workspace only)
 gog auth service-account status <email>            # Show service account status
 gog auth service-account unset <email>             # Remove service account

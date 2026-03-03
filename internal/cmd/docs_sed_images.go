@@ -304,10 +304,12 @@ func matchImages(images []DocImage, ref *ImageRefPattern) []DocImage {
 	if ref.ByPosition {
 		pos := ref.Position
 		if pos > 0 && pos <= len(images) {
-			return []DocImage{images[pos-1]}
+			idx := pos - 1
+			return []DocImage{images[idx]} //nolint:gosec // idx is range-checked above
 		}
 		if pos < 0 && -pos <= len(images) {
-			return []DocImage{images[len(images)+pos]}
+			idx := len(images) + pos
+			return []DocImage{images[idx]}
 		}
 		return nil
 	}

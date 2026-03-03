@@ -98,6 +98,10 @@ func (c *DocsSedCmd) runInsertAroundMatch(ctx context.Context, u *ui.UI, account
 	if err != nil {
 		return err
 	}
+	resultKey := "appended"
+	if before {
+		resultKey = "inserted"
+	}
 
 	re, err := expr.compilePattern()
 	if err != nil {
@@ -113,11 +117,7 @@ func (c *DocsSedCmd) runInsertAroundMatch(ctx context.Context, u *ui.UI, account
 	// Collect insertion points (in reverse order to preserve indices)
 	var insertPoints []int64
 	if doc.Body == nil {
-		cmd := "appended"
-		if before {
-			cmd = "inserted"
-		}
-		return sedOutputOK(ctx, u, id, sedOutputKV{Key: cmd, Value: "0 (empty document)"})
+		return sedOutputOK(ctx, u, id, sedOutputKV{Key: resultKey, Value: "0 (empty document)"})
 	}
 	for _, elem := range doc.Body.Content {
 		if elem.Paragraph == nil {
@@ -134,11 +134,7 @@ func (c *DocsSedCmd) runInsertAroundMatch(ctx context.Context, u *ui.UI, account
 	}
 
 	if len(insertPoints) == 0 {
-		cmd := "appended"
-		if before {
-			cmd = "inserted"
-		}
-		return sedOutputOK(ctx, u, id, sedOutputKV{Key: cmd, Value: "0 (no matches)"})
+		return sedOutputOK(ctx, u, id, sedOutputKV{Key: resultKey, Value: "0 (no matches)"})
 	}
 
 	// Build requests in reverse document order
@@ -156,11 +152,7 @@ func (c *DocsSedCmd) runInsertAroundMatch(ctx context.Context, u *ui.UI, account
 		return fmt.Errorf("batch update (insert): %w", err)
 	}
 
-	cmd := "appended"
-	if before {
-		cmd = "inserted"
-	}
-	return sedOutputOK(ctx, u, id, sedOutputKV{Key: cmd, Value: fmt.Sprintf("%d lines", len(insertPoints))})
+	return sedOutputOK(ctx, u, id, sedOutputKV{Key: resultKey, Value: fmt.Sprintf("%d lines", len(insertPoints))})
 }
 
 // runTransliterate executes a y/source/dest/ command, replacing each character in source

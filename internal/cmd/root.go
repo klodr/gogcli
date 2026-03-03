@@ -132,7 +132,7 @@ func Execute(args []string) (err error) {
 
 	// Opt-in "agent mode": default to JSON when stdout is piped/non-TTY.
 	// We intentionally do this after parsing so `--plain` can override it.
-	if envBool("GOG_AUTO_JSON") && !cli.JSON && !cli.Plain && !term.IsTerminal(int(os.Stdout.Fd())) {
+	if envBool("GOG_AUTO_JSON") && !cli.JSON && !cli.Plain && !term.IsTerminal(int(os.Stdout.Fd())) { //nolint:gosec // os file descriptor fits int on supported targets
 		cli.JSON = true
 	}
 

@@ -82,6 +82,7 @@ func TestParseTableCreate(t *testing.T) {
 			}
 			if got == nil {
 				t.Fatalf("parseTableCreate(%q) = nil, want %+v", tt.input, tt.want)
+				return
 			}
 			if got.rows != tt.want.rows || got.cols != tt.want.cols || got.header != tt.want.header {
 				t.Errorf("parseTableCreate(%q) = {rows:%d, cols:%d, header:%v}, want {rows:%d, cols:%d, header:%v}",

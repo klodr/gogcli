@@ -343,7 +343,7 @@ func (c *AuthTokensExportCmd) Run(ctx context.Context, _ *RootFlags) error {
 		Services     []string `json:"services,omitempty"`
 		Scopes       []string `json:"scopes,omitempty"`
 		CreatedAt    string   `json:"created_at,omitempty"`
-		RefreshToken string   `json:"refresh_token"`
+		RefreshToken string   `json:"refresh_token"` //nolint:gosec // schema intentionally includes refresh_token for import/export
 	}
 	created := ""
 	if !tok.CreatedAt.IsZero() {
@@ -408,7 +408,7 @@ func (c *AuthTokensImportCmd) Run(ctx context.Context, _ *RootFlags) error {
 		Services     []string `json:"services,omitempty"`
 		Scopes       []string `json:"scopes,omitempty"`
 		CreatedAt    string   `json:"created_at,omitempty"`
-		RefreshToken string   `json:"refresh_token"`
+		RefreshToken string   `json:"refresh_token"` //nolint:gosec // schema intentionally includes refresh_token for import/export
 	}
 	var ex export
 	if unmarshalErr := json.Unmarshal(b, &ex); unmarshalErr != nil {
