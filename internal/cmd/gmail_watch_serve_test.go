@@ -351,7 +351,7 @@ func TestGmailWatchServeCmd_PreservesClientOverrideForRequestContexts(t *testing
 		if client := authclient.ClientOverrideFromContext(ctx); client != "personal" {
 			t.Fatalf("expected client override personal, got %q", client)
 		}
-		return nil, nil
+		return &gmail.Service{}, nil
 	}
 
 	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
