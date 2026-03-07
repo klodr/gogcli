@@ -13,7 +13,10 @@ import (
 	"github.com/steipete/gogcli/internal/config"
 )
 
-var errTestKeychain = errors.New("test -25308 error")
+var (
+	errTestKeychain = errors.New("test -25308 error")
+	errTestReadBack = errors.New("test read-back failure")
+)
 
 func TestKeyringStore_ListDeleteDefault(t *testing.T) {
 	ring := keyring.NewArrayKeyring(nil)
@@ -271,9 +274,11 @@ func TestSetTokenVerifyCatchesEmptyWrite(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when keyring silently drops data")
 	}
+
 	if !errors.Is(err, errTokenVerifyFailed) {
 		t.Fatalf("expected errTokenVerifyFailed, got: %v", err)
 	}
+
 	if !strings.Contains(err.Error(), "gog auth keyring file") {
 		t.Fatalf("expected workaround suggestion in error, got: %v", err)
 	}
@@ -286,7 +291,7 @@ type readBackErrorKeyring struct {
 
 func (r *readBackErrorKeyring) Set(_ keyring.Item) error { return nil }
 func (r *readBackErrorKeyring) Get(_ string) (keyring.Item, error) {
-	return keyring.Item{}, errors.New("read failed")
+	return keyring.Item{}, errTestReadBack
 }
 func (r *readBackErrorKeyring) Keys() ([]string, error) { return nil, nil }
 
@@ -298,9 +303,11 @@ func TestSetTokenVerifyCatchesReadBackError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when keyring read-back fails")
 	}
+
 	if !errors.Is(err, errTokenVerifyFailed) {
 		t.Fatalf("expected errTokenVerifyFailed, got: %v", err)
 	}
+
 	if !strings.Contains(err.Error(), "could not read back") {
 		t.Fatalf("expected read-back error detail, got: %v", err)
 	}
