@@ -12,12 +12,12 @@ jobs:
   test:
     runs-on: blacksmith-16vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: .tools
           key: ${{ runner.os }}-tools-${{ hashFiles('Makefile') }}
@@ -33,16 +33,16 @@ jobs:
   worker:
     runs-on: blacksmith-16vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "pnpm"
           cache-dependency-path: internal/tracking/worker/pnpm-lock.yaml
       - name: Enable Corepack (pnpm)
         run: |
           corepack enable
-          corepack prepare pnpm@10.27.0 --activate
+          corepack prepare pnpm@10.30.3 --activate
       - name: Install dependencies
         run: pnpm -C internal/tracking/worker install --frozen-lockfile
       - name: Lint
@@ -55,12 +55,12 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: .tools
           key: ${{ runner.os }}-tools-${{ hashFiles('Makefile') }}
@@ -88,8 +88,8 @@ jobs:
   darwin-cgo-build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
