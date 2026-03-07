@@ -1091,6 +1091,9 @@ gog chat messages list spaces/<spaceId> --max 5
 gog chat messages list spaces/<spaceId> --thread <threadId>
 gog chat messages list spaces/<spaceId> --unread
 gog chat messages send spaces/<spaceId> --text "Build complete!" --thread spaces/<spaceId>/threads/<threadId>
+gog chat messages reactions list spaces/<spaceId>/messages/<messageId>
+gog chat messages react spaces/<spaceId>/messages/<messageId> "👍"
+gog chat messages reactions delete spaces/<spaceId>/messages/<messageId>/reactions/<reactionId>
 
 # Threads
 gog chat threads list spaces/<spaceId>

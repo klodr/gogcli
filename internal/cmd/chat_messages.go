@@ -13,8 +13,9 @@ import (
 )
 
 type ChatMessagesCmd struct {
-	List ChatMessagesListCmd `cmd:"" name:"list" aliases:"ls" help:"List messages"`
-	Send ChatMessagesSendCmd `cmd:"" name:"send" aliases:"create,post" help:"Send a message"`
+	List      ChatMessagesListCmd      `cmd:"" name:"list" aliases:"ls" help:"List messages"`
+	Send      ChatMessagesSendCmd      `cmd:"" name:"send" aliases:"create,post" help:"Send a message"`
+	Reactions ChatMessagesReactionsCmd `cmd:"" name:"reactions" aliases:"react,reaction" help:"Manage emoji reactions on a message"`
 }
 
 type ChatMessagesListCmd struct {
