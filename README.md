@@ -1105,6 +1105,21 @@ gog chat dm send user@company.com --text "ping"
 
 Note: Chat commands require a Google Workspace account (consumer @gmail.com accounts are not supported).
 
+### Admin
+
+```bash
+# Requires a Workspace service account with domain-wide delegation.
+gog admin users list --domain example.com
+gog admin users get user@example.com
+gog admin users create user@example.com --given Ada --family Lovelace --password 'TempPass123!'
+gog admin users suspend user@example.com --force
+
+gog admin groups list --domain example.com
+gog admin groups members list engineering@example.com
+gog admin groups members add engineering@example.com user@example.com --role MEMBER
+gog admin groups members remove engineering@example.com user@example.com --force
+```
+
 ### Groups (Google Workspace)
 
 ```bash
