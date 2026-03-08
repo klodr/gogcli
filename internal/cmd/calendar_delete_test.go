@@ -6,12 +6,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"google.golang.org/api/calendar/v3"
-	"google.golang.org/api/option"
 
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/ui"
@@ -21,7 +19,7 @@ func TestCalendarDeleteCmd_ScopeSingle(t *testing.T) {
 	origNew := newCalendarService
 	t.Cleanup(func() { newCalendarService = origNew })
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	svc, closeSvc := newCalendarServiceForTest(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/calendar/v3")
 		switch {
 		case r.Method == http.MethodGet && strings.HasPrefix(path, "/calendars/cal@example.com/events/ev/instances"):
@@ -45,16 +43,7 @@ func TestCalendarDeleteCmd_ScopeSingle(t *testing.T) {
 			return
 		}
 	}))
-	defer srv.Close()
-
-	svc, err := calendar.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
+	defer closeSvc()
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
 	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
@@ -92,7 +81,7 @@ func TestCalendarDeleteCmd_SendUpdates(t *testing.T) {
 	t.Cleanup(func() { newCalendarService = origNew })
 
 	var gotSendUpdates string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	svc, closeSvc := newCalendarServiceForTest(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/calendar/v3")
 		switch {
 		case r.Method == http.MethodGet && path == "/users/me/calendarList":
@@ -122,16 +111,7 @@ func TestCalendarDeleteCmd_SendUpdates(t *testing.T) {
 		}
 		http.NotFound(w, r)
 	}))
-	defer srv.Close()
-
-	svc, err := calendar.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
+	defer closeSvc()
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
 	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
@@ -159,7 +139,7 @@ func TestCalendarDeleteCmd_ScopeFuture(t *testing.T) {
 	t.Cleanup(func() { newCalendarService = origNew })
 
 	var patchedRecurrence []string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	svc, closeSvc := newCalendarServiceForTest(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/calendar/v3")
 		switch {
 		case r.Method == http.MethodGet && path == "/calendars/cal@example.com/events/ev":
@@ -197,16 +177,7 @@ func TestCalendarDeleteCmd_ScopeFuture(t *testing.T) {
 			return
 		}
 	}))
-	defer srv.Close()
-
-	svc, err := calendar.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
+	defer closeSvc()
 	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
 	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
