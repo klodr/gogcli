@@ -67,8 +67,8 @@ func TestFormsAddQuestionAppend(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newFormsService = func(context.Context, string) (*formsapi.Service, error) {
-		return newFormsTestService(t, srv), nil
+	newFormsService = func(ctx context.Context, account string) (*formsapi.Service, error) {
+		return newFormsTestService(t, ctx, srv), nil
 	}
 
 	err := runKong(t, &FormsAddQuestionCmd{}, []string{"form1", "--title", "Favorite color", "--type", "radio", "--option", "Red", "--option", "Blue"}, newQuietUIContext(t), &RootFlags{Account: "a@b.com"})
@@ -122,8 +122,8 @@ func TestFormsDeleteQuestionValidationAndDryRun(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newFormsService = func(context.Context, string) (*formsapi.Service, error) {
-		return newFormsTestService(t, srv), nil
+	newFormsService = func(ctx context.Context, account string) (*formsapi.Service, error) {
+		return newFormsTestService(t, ctx, srv), nil
 	}
 
 	ctx := newQuietUIContext(t)

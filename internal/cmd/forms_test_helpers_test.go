@@ -12,10 +12,10 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-func newFormsTestService(t *testing.T, srv *httptest.Server) *formsapi.Service {
+func newFormsTestService(t *testing.T, ctx context.Context, srv *httptest.Server) *formsapi.Service {
 	t.Helper()
 
-	svc, err := formsapi.NewService(context.Background(),
+	svc, err := formsapi.NewService(ctx,
 		option.WithoutAuthentication(),
 		option.WithHTTPClient(srv.Client()),
 		option.WithEndpoint(srv.URL+"/"),
