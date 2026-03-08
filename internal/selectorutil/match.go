@@ -24,6 +24,7 @@ func FindByIDOrCaseFoldName(input string, options []Match) (*Match, bool, []Matc
 	}
 
 	var matches []Match
+
 	for _, option := range options {
 		name := strings.TrimSpace(option.Name)
 		if name == "" || !strings.EqualFold(name, in) {
@@ -46,8 +47,10 @@ func FindByIDOrCaseFoldName(input string, options []Match) (*Match, bool, []Matc
 			if matches[i].Name == matches[j].Name {
 				return matches[i].ID < matches[j].ID
 			}
+
 			return matches[i].Name < matches[j].Name
 		})
+
 		return nil, false, matches
 	}
 }
