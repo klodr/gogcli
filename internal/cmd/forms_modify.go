@@ -241,8 +241,8 @@ func (c *FormsDeleteQuestionCmd) Run(ctx context.Context, flags *RootFlags) erro
 		*confirmFlags = *flags
 	}
 	confirmFlags.DryRun = false
-	if err := confirmDestructive(ctx, confirmFlags, fmt.Sprintf("delete question %d from form %s", c.Index, formID)); err != nil {
-		return err
+	if confirmErr := confirmDestructive(ctx, confirmFlags, fmt.Sprintf("delete question %d from form %s", c.Index, formID)); confirmErr != nil {
+		return confirmErr
 	}
 
 	batchReq := &formsapi.BatchUpdateFormRequest{

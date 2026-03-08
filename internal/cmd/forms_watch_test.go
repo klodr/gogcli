@@ -55,8 +55,8 @@ func TestFormsWatchCommands(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newFormsService = func(context.Context, string) (*formsapi.Service, error) {
-		return newFormsTestService(t, srv), nil
+	newFormsService = func(ctx context.Context, account string) (*formsapi.Service, error) {
+		return newFormsTestService(t, ctx, srv), nil
 	}
 
 	ctx := newQuietUIContext(t)
