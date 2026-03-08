@@ -238,8 +238,8 @@ func (c *SlidesCreateFromTemplateCmd) parseReplacements() (map[string]string, er
 			return nil, fmt.Errorf("empty key in replacement %q", replacement)
 		}
 
-		// Warn if using non-placeholder key without --exact flag
-		if !c.Exact && !strings.HasPrefix(key, "{{") && !strings.HasSuffix(key, "}}") {
+		// Wrap keys unless the caller already supplied a full {{placeholder}}.
+		if !c.Exact && (!strings.HasPrefix(key, "{{") || !strings.HasSuffix(key, "}}")) {
 			// This is OK, we'll add {{}} automatically
 		}
 

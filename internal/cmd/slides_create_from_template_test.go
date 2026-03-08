@@ -127,26 +127,18 @@ func TestSlidesCreateFromTemplate_Basic(t *testing.T) {
 		t.Fatalf("Expected 2 replacement requests, got %d", len(capturedSlidesRequests))
 	}
 
-	// Check first replacement
-	if capturedSlidesRequests[0].ReplaceAllText == nil {
-		t.Fatal("First request is not ReplaceAllText")
+	got := make(map[string]string, len(capturedSlidesRequests))
+	for _, req := range capturedSlidesRequests {
+		if req.ReplaceAllText == nil {
+			t.Fatal("request is not ReplaceAllText")
+		}
+		got[req.ReplaceAllText.ContainsText.Text] = req.ReplaceAllText.ReplaceText
 	}
-	if capturedSlidesRequests[0].ReplaceAllText.ContainsText.Text != "{{name}}" {
-		t.Errorf("Expected {{name}}, got %s", capturedSlidesRequests[0].ReplaceAllText.ContainsText.Text)
+	if got["{{name}}"] != "John Doe" {
+		t.Errorf("expected {{name}} => John Doe, got %q", got["{{name}}"])
 	}
-	if capturedSlidesRequests[0].ReplaceAllText.ReplaceText != "John Doe" {
-		t.Errorf("Expected 'John Doe', got %s", capturedSlidesRequests[0].ReplaceAllText.ReplaceText)
-	}
-
-	// Check second replacement
-	if capturedSlidesRequests[1].ReplaceAllText == nil {
-		t.Fatal("Second request is not ReplaceAllText")
-	}
-	if capturedSlidesRequests[1].ReplaceAllText.ContainsText.Text != "{{company}}" {
-		t.Errorf("Expected {{company}}, got %s", capturedSlidesRequests[1].ReplaceAllText.ContainsText.Text)
-	}
-	if capturedSlidesRequests[1].ReplaceAllText.ReplaceText != "ACME Corp" {
-		t.Errorf("Expected 'ACME Corp', got %s", capturedSlidesRequests[1].ReplaceAllText.ReplaceText)
+	if got["{{company}}"] != "ACME Corp" {
+		t.Errorf("expected {{company}} => ACME Corp, got %q", got["{{company}}"])
 	}
 }
 
@@ -166,8 +158,8 @@ func TestSlidesCreateFromTemplate_JSONFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(jsonFile, data, 0o644); err != nil {
-		t.Fatal(err)
+	if writeErr := os.WriteFile(jsonFile, data, 0o644); writeErr != nil {
+		t.Fatal(writeErr)
 	}
 
 	var capturedSlidesRequests []*slides.Request
@@ -191,8 +183,8 @@ func TestSlidesCreateFromTemplate_JSONFile(t *testing.T) {
 	slidesServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" && r.URL.Path == "/v1/presentations/copied456:batchUpdate" {
 			var req slides.BatchUpdatePresentationRequest
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+			if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
+				http.Error(w, decodeErr.Error(), http.StatusBadRequest)
 				return
 			}
 
@@ -476,8 +468,8 @@ func TestSlidesCreateFromTemplate_CombineFileAndFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(jsonFile, data, 0o644); err != nil {
-		t.Fatal(err)
+	if writeErr := os.WriteFile(jsonFile, data, 0o644); writeErr != nil {
+		t.Fatal(writeErr)
 	}
 
 	var capturedSlidesRequests []*slides.Request
@@ -501,8 +493,8 @@ func TestSlidesCreateFromTemplate_CombineFileAndFlags(t *testing.T) {
 	slidesServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			var req slides.BatchUpdatePresentationRequest
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+			if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
+				http.Error(w, decodeErr.Error(), http.StatusBadRequest)
 				return
 			}
 
@@ -606,12 +598,12 @@ func TestSlidesCreateFromTemplate_DryRunSkipsAPICalls(t *testing.T) {
 	newDriveService = func(context.Context, string) (*drive.Service, error) {
 		driveCalls++
 		t.Fatal("drive service should not be created during dry-run")
-		return nil, nil
+		return &drive.Service{}, nil
 	}
 	newSlidesService = func(context.Context, string) (*slides.Service, error) {
 		slidesCalls++
 		t.Fatal("slides service should not be created during dry-run")
-		return nil, nil
+		return &slides.Service{}, nil
 	}
 
 	cmd := &SlidesCreateFromTemplateCmd{
