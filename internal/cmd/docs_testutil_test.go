@@ -51,6 +51,7 @@ func newDocsCmdOutputContext(t *testing.T) (context.Context, *bytes.Buffer) {
 }
 
 func newDocsJSONContext(t *testing.T) context.Context {
+	t.Helper()
 	return outfmt.WithMode(newDocsCmdContext(t), outfmt.Mode{JSON: true})
 }
 
