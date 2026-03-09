@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	keepapi "google.golang.org/api/keep/v1"
@@ -292,13 +291,7 @@ func (c *KeepAttachmentCmd) Run(ctx context.Context, flags *RootFlags, keep *Kee
 	}
 	defer resp.Body.Close()
 
-	if dir := filepath.Dir(outPath); dir != "." {
-		if mkdirErr := os.MkdirAll(dir, 0o700); mkdirErr != nil && !os.IsExist(mkdirErr) {
-			return fmt.Errorf("create output directory: %w", mkdirErr)
-		}
-	}
-
-	f, err := os.Create(outPath) //nolint:gosec // user-provided output path
+	f, outPath, err := createUserOutputFile(outPath)
 	if err != nil {
 		return fmt.Errorf("create output file: %w", err)
 	}

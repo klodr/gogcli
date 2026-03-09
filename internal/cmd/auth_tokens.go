@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -111,10 +110,6 @@ func (c *AuthTokensExportCmd) Run(ctx context.Context, _ *RootFlags) error {
 	if outPath == "" {
 		return usage("empty outPath")
 	}
-	outPath, err := config.ExpandPath(outPath)
-	if err != nil {
-		return err
-	}
 
 	store, err := openSecretsStore()
 	if err != nil {
@@ -129,16 +124,11 @@ func (c *AuthTokensExportCmd) Run(ctx context.Context, _ *RootFlags) error {
 		return err
 	}
 
-	// #nosec G301,G703 -- destination directory is explicitly chosen by the caller.
-	if mkErr := os.MkdirAll(filepath.Dir(outPath), 0o700); mkErr != nil {
-		return mkErr
-	}
-
-	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
-	if !c.Overwrite {
-		flags = os.O_WRONLY | os.O_CREATE | os.O_EXCL
-	}
-	f, openErr := os.OpenFile(outPath, flags, 0o600) //nolint:gosec // user-provided path
+	f, outPath, openErr := openUserOutputFile(outPath, outputFileOptions{
+		Overwrite: c.Overwrite,
+		FileMode:  0o600,
+		DirMode:   0o700,
+	})
 	if openErr != nil {
 		return openErr
 	}

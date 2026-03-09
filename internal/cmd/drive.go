@@ -916,7 +916,7 @@ func downloadDriveFile(ctx context.Context, svc *drive.Service, meta *drive.File
 		return "", 0, fmt.Errorf("download failed: %s: %s", resp.Status, strings.TrimSpace(string(body)))
 	}
 
-	f, err := os.Create(outPath) //nolint:gosec // user-provided path
+	f, outPath, err := createUserOutputFile(outPath)
 	if err != nil {
 		return "", 0, err
 	}

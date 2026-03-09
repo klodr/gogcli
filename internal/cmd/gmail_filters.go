@@ -159,7 +159,7 @@ func (c *GmailFiltersExportCmd) Run(ctx context.Context, flags *RootFlags) error
 		return outfmt.WriteJSON(ctx, os.Stdout, payload)
 	}
 
-	f, err := os.Create(outPath) //nolint:gosec // explicit user-selected output path
+	f, outPath, err := createUserOutputFile(outPath)
 	if err != nil {
 		return err
 	}
