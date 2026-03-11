@@ -406,8 +406,8 @@ func (c *ContactsCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 			p.Relations = relations
 		}
 	}
-	if strings.TrimSpace(c.Gender) != "" {
-		p.Genders = []*people.Gender{{Value: strings.TrimSpace(c.Gender)}}
+	if trimmed := strings.TrimSpace(c.Gender); trimmed != "" {
+		p.Genders = []*people.Gender{{Value: trimmed}}
 	}
 
 	created, err := svc.People.CreateContact(p).Do()
@@ -593,10 +593,11 @@ func (c *ContactsUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *
 	}
 
 	if wantGender {
-		if strings.TrimSpace(c.Gender) == "" {
+		trimmed := strings.TrimSpace(c.Gender)
+		if trimmed == "" {
 			existing.Genders = nil // will be forced to [] for patch
 		} else {
-			existing.Genders = []*people.Gender{{Value: strings.TrimSpace(c.Gender)}}
+			existing.Genders = []*people.Gender{{Value: trimmed}}
 		}
 		updateFields = append(updateFields, "genders")
 	}
