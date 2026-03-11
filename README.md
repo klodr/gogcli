@@ -991,7 +991,8 @@ gog contacts create \
   --email "john@example.com" \
   --phone "+1234567890" \
   --address "12 St James's Square, London" \
-  --relation "spouse=Jane Doe"
+  --relation "spouse=Jane Doe" \
+  --gender "female"
 
 gog contacts update people/<resourceName> \
   --given "Jane" \
@@ -999,7 +1000,8 @@ gog contacts update people/<resourceName> \
   --address "1 Infinite Loop, Cupertino" \
   --birthday "1990-05-12" \
   --notes "Met at WWDC" \
-  --relation "friend=Bob"
+  --relation "friend=Bob" \
+  --gender "female"                     # or: male, unspecified, nonbinary, ...
 
 # Update via JSON (see docs/contacts-json-update.md)
 gog contacts get people/<resourceName> --json | \
