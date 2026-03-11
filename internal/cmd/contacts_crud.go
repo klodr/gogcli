@@ -460,7 +460,7 @@ func (c *ContactsUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *
 	}
 
 	if strings.TrimSpace(c.FromFile) != "" {
-		if flagProvided(kctx, "given") || flagProvided(kctx, "family") || flagProvided(kctx, "email") || flagProvided(kctx, "phone") || flagProvided(kctx, "birthday") || flagProvided(kctx, "notes") || flagProvided(kctx, "relation") {
+		if flagProvided(kctx, "given") || flagProvided(kctx, "family") || flagProvided(kctx, "email") || flagProvided(kctx, "phone") || flagProvided(kctx, "birthday") || flagProvided(kctx, "notes") || flagProvided(kctx, "relation") || flagProvided(kctx, "gender") {
 			return usage("can't combine --from-file with other update flags")
 		}
 		return c.updateFromJSON(ctx, svc, resourceName, u)
