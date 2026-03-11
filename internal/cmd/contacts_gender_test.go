@@ -345,3 +345,80 @@ func TestPrimaryGender_EmptyWhenNilEntry(t *testing.T) {
 		t.Fatalf("primaryGender nil entry: expected empty, got %q", got)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// contacts update --gender: rejected when combined with --from-file
+// ---------------------------------------------------------------------------
+
+func TestContactsUpdate_Gender_RejectedWithFromFile(t *testing.T) {
+	svc, closeSrv := newPeopleService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r) // should never be called
+	}))
+	t.Cleanup(closeSrv)
+	stubPeopleServices(t, svc)
+
+	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui.New: %v", err)
+	}
+	ctx := ui.WithUI(context.Background(), u)
+
+	err = runKong(t, &ContactsUpdateCmd{}, []string{"people/c1", "--from-file", "-", "--gender", "female"}, ctx, &RootFlags{Account: "a@b.com"})
+	if err == nil {
+		t.Fatal("expected error when combining --from-file with --gender, got nil")
+	}
+	if !strings.Contains(err.Error(), "can't combine") {
+		t.Fatalf("expected conflict error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// contacts get: gender present in JSON output
+// ---------------------------------------------------------------------------
+
+func TestContactsGet_Gender_InJSONOutput(t *testing.T) {
+	svc, closeSrv := newPeopleService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "people/c1") && r.Method == http.MethodGet && !strings.Contains(r.URL.Path, ":"):
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"resourceName": "people/c1",
+				"names":        []map[string]any{{"givenName": "Ada", "familyName": "Lovelace"}},
+				"genders":      []map[string]any{{"value": "female", "formattedValue": "Female"}},
+			})
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(closeSrv)
+	stubPeopleServices(t, svc)
+
+	out := captureStdout(t, func() {
+		u, _ := ui.New(ui.Options{Stderr: io.Discard, Color: "never"})
+		ctx := ui.WithUI(context.Background(), u)
+		if err := runKong(t, &ContactsGetCmd{}, []string{"people/c1", "--json"}, ctx, &RootFlags{Account: "a@b.com"}); err != nil {
+			t.Fatalf("runKong: %v", err)
+		}
+	})
+
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, out)
+	}
+	contact, ok := parsed["contact"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing \"contact\" key in JSON output: %q", out)
+	}
+	genders, ok := contact["genders"].([]any)
+	if !ok || len(genders) == 0 {
+		t.Fatalf("expected genders in JSON output, got: %q", out)
+	}
+	first, ok := genders[0].(map[string]any)
+	if !ok {
+		t.Fatalf("genders[0] is not an object: %q", out)
+	}
+	if v, _ := first["value"].(string); v != "female" {
+		t.Fatalf("expected genders[0].value=\"female\", got %q", v)
+	}
+}
