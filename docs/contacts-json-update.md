@@ -32,7 +32,24 @@ The command accepts:
 
 `--from-file` updates only fields that the People API allows via `people.updateContact` `updatePersonFields`.
 
-Practical rule: include only fields you want to change, at the top level of the JSON object (for example `urls`, `biographies`, `names`, `emailAddresses`, `phoneNumbers`, `addresses`, `organizations`, ...).
+Practical rule: include only fields you want to change, at the top level of the JSON object (for example `urls`, `biographies`, `names`, `emailAddresses`, `phoneNumbers`, `addresses`, `organizations`, `genders`, ...).
+
+The following fields are also available as dedicated CLI flags on `contacts create` and `contacts update`, which is simpler than `--from-file` for single-field edits:
+
+| Flag | People API field | Notes |
+|---|---|---|
+| `--given` / `--family` | `names` | |
+| `--email` | `emailAddresses` | |
+| `--phone` | `phoneNumbers` | |
+| `--org` / `--title` | `organizations` | |
+| `--address` | `addresses` | |
+| `--url` | `urls` | |
+| `--note` | `biographies` | |
+| `--birthday` | `birthdays` | YYYY-MM-DD |
+| `--notes` | `biographies` | plain text |
+| `--relation` | `relations` | `type=person` |
+| `--custom` | `userDefined` | `key=value` |
+| `--gender` | `genders` | e.g. `male`, `female`, `unspecified`, or any custom value |
 
 If the JSON contains unsupported fields (for `updateContact`), gog errors instead of silently ignoring them.
 

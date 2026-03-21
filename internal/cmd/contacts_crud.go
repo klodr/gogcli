@@ -17,8 +17,8 @@ import (
 
 const (
 	contactsReadMask       = "names,emailAddresses,phoneNumbers,organizations,urls"
-	contactsGetReadMask    = contactsReadMask + ",birthdays,biographies,addresses,userDefined,relations,metadata"
-	contactsUpdateReadMask = contactsReadMask + ",birthdays,biographies,addresses,userDefined,relations,metadata"
+	contactsGetReadMask    = contactsReadMask + ",birthdays,biographies,addresses,userDefined,relations,genders,metadata"
+	contactsUpdateReadMask = contactsReadMask + ",birthdays,biographies,addresses,userDefined,relations,genders,metadata"
 )
 
 type ContactsListCmd struct {
@@ -175,6 +175,9 @@ func (c *ContactsGetCmd) Run(ctx context.Context, flags *RootFlags) error {
 			u.Out().Printf("title\t%s", title)
 		}
 	}
+	if g := primaryGender(p); g != "" {
+		u.Out().Printf("gender\t%s", g)
+	}
 	for _, url := range allURLs(p) {
 		u.Out().Printf("url\t%s", url)
 	}
@@ -216,6 +219,7 @@ type ContactsCreateCmd struct {
 	Address      []string `name:"address" sep:";" help:"Postal address (can be repeated for multiple addresses)"`
 	Custom       []string `name:"custom" help:"Custom field as key=value (can be repeated)"`
 	Relation     []string `name:"relation" help:"Relation as type=person (can be repeated)"`
+	Gender       string   `name:"gender" help:"Gender (e.g. male, female, unspecified, or any custom value)"`
 }
 
 func parseKeyValuePairs(values []string, allowEmptyClear bool, flag, format string) ([][2]string, bool, error) {
@@ -326,6 +330,18 @@ func contactsApplyPersonOrganization(person *people.Person, orgSet bool, org str
 	person.Organizations = []*people.Organization{{Name: curOrg, Title: curTitle}}
 }
 
+// primaryGender returns the formattedValue of the first gender entry, or the raw
+// value if formattedValue is empty.
+func primaryGender(p *people.Person) string {
+	if len(p.Genders) == 0 || p.Genders[0] == nil {
+		return ""
+	}
+	if p.Genders[0].FormattedValue != "" {
+		return p.Genders[0].FormattedValue
+	}
+	return p.Genders[0].Value
+}
+
 func (c *ContactsCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
 	account, err := requireAccount(flags)
@@ -390,6 +406,9 @@ func (c *ContactsCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 			p.Relations = relations
 		}
 	}
+	if trimmed := strings.TrimSpace(c.Gender); trimmed != "" {
+		p.Genders = []*people.Gender{{Value: trimmed}}
+	}
 
 	created, err := svc.People.CreateContact(p).Do()
 	if err != nil {
@@ -421,6 +440,7 @@ type ContactsUpdateCmd struct {
 	// Extra People API fields (not previously exposed by gog)
 	Birthday string `name:"birthday" help:"Birthday in YYYY-MM-DD (empty clears)"`
 	Notes    string `name:"notes" help:"Notes (stored as People API biography; empty clears)"`
+	Gender   string `name:"gender" help:"Gender (e.g. male, female, unspecified, or any custom value; empty clears)"`
 }
 
 func (c *ContactsUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *RootFlags) error {
@@ -440,7 +460,7 @@ func (c *ContactsUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *
 	}
 
 	if strings.TrimSpace(c.FromFile) != "" {
-		if flagProvided(kctx, "given") || flagProvided(kctx, "family") || flagProvided(kctx, "email") || flagProvided(kctx, "phone") || flagProvided(kctx, "birthday") || flagProvided(kctx, "notes") || flagProvided(kctx, "relation") {
+		if flagProvided(kctx, "given") || flagProvided(kctx, "family") || flagProvided(kctx, "email") || flagProvided(kctx, "phone") || flagProvided(kctx, "birthday") || flagProvided(kctx, "notes") || flagProvided(kctx, "relation") || flagProvided(kctx, "gender") {
 			return usage("can't combine --from-file with other update flags")
 		}
 		return c.updateFromJSON(ctx, svc, resourceName, u)
@@ -466,6 +486,7 @@ func (c *ContactsUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *
 	wantNotes := flagProvided(kctx, "notes")
 	wantCustom := flagProvided(kctx, "custom")
 	wantRelation := flagProvided(kctx, "relation")
+	wantGender := flagProvided(kctx, "gender")
 
 	if wantGiven || wantFamily {
 		contactsApplyPersonName(existing, wantGiven, c.Given, wantFamily, c.Family)
@@ -569,6 +590,16 @@ func (c *ContactsUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *
 			}}
 		}
 		updateFields = append(updateFields, "biographies")
+	}
+
+	if wantGender {
+		trimmed := strings.TrimSpace(c.Gender)
+		if trimmed == "" {
+			existing.Genders = nil // will be forced to [] for patch
+		} else {
+			existing.Genders = []*people.Gender{{Value: trimmed}}
+		}
+		updateFields = append(updateFields, "genders")
 	}
 
 	if len(updateFields) == 0 {
