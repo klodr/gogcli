@@ -1,58 +1,56 @@
-name: release
+name: Build and Release
 
 on:
   push:
     tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag to (re)release (e.g. v0.1.0)"
-        required: true
-        type: string
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
-  goreleaser:
-    runs-on: macos-latest
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
         with:
-          fetch-depth: 0
+          go-version: '1.22'
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Stash GoReleaser config
-        run: cp .goreleaser.yaml /tmp/.goreleaser.yaml
-
-      - name: Validate release tag
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+      - name: Build
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
         run: |
-          if ! echo "$RELEASE_TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
-            echo "::error::Invalid tag format: $RELEASE_TAG"
-            exit 1
-          fi
+          VERSION=${GITHUB_REF_NAME#v}
+          go build -ldflags "-s -w -X main.version=${VERSION}" -o gog ./cmd/gog
+          tar -czf gogcli_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz gog
 
-      - name: Checkout release tag
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: git checkout "$RELEASE_TAG"
-
-      - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v7
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean --config /tmp/.goreleaser.yaml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: gogcli-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: gogcli_*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: gogcli-*/gogcli_*.tar.gz
+          generate_release_notes: true
